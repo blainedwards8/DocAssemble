@@ -3,6 +3,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Icon from './components/Icon';
 import MarkdownRenderer from './components/MarkdownRenderer';
 import { resolveVariables, parseMarkdown, triggerSave } from './utils';
+import { generateDocx, generatePdf, generateRtf } from './exportUtils';
 import { INITIAL_SNIPPETS, INITIAL_RAW_TEMPLATE, TIER_TYPES } from './constants';
 
 function App() {
@@ -225,6 +226,27 @@ function App() {
     setCopyStatus(true); setTimeout(() => setCopyStatus(false), 2000);
   };
 
+  const handleExport = async (format) => {
+    let blob;
+    const filename = `Document_${Date.now()}`;
+
+    try {
+      if (format === 'docx') {
+        blob = await generateDocx(parsedTemplate, variables, sectionListOffsets, continuousNumbering, tierStyles, disabledSlots);
+        await triggerSave(blob, `${filename}.docx`, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+      } else if (format === 'pdf') {
+        blob = generatePdf(parsedTemplate, variables, sectionListOffsets, continuousNumbering, tierStyles, disabledSlots);
+        await triggerSave(blob, `${filename}.pdf`, 'application/pdf');
+      } else if (format === 'rtf') {
+        blob = generateRtf(parsedTemplate, variables, sectionListOffsets, continuousNumbering, tierStyles, disabledSlots);
+        await triggerSave(blob, `${filename}.rtf`, 'application/rtf');
+      }
+    } catch (e) {
+      console.error("Export failed", e);
+      alert("Export failed: " + e.message);
+    }
+  };
+
   const onDragStart = (e, snippet) => { setDraggedItem(snippet); e.dataTransfer.setData('snippetId', snippet.id); e.dataTransfer.effectAllowed = 'copy'; };
   const onDragOver = (e, item) => { e.preventDefault(); if (!draggedItem) return; setDragOverSlotId(item.id); };
   const onDragLeave = () => setDragOverSlotId(null);
@@ -323,7 +345,30 @@ function App() {
           <button onClick={openVariableModal} className="px-4 py-2 bg-white border border-slate-200 rounded-md text-[10px] font-black uppercase text-slate-600 shadow-sm flex items-center gap-2">
             <Icon name="Database" size={14} className="text-indigo-500" /> Variables
           </button>
-          <button onClick={copyToClipboard} className="px-5 py-2 bg-indigo-600 text-white rounded-md text-[10px] font-black uppercase shadow-lg active:scale-95 transition-all">{copyStatus ? 'Copied' : 'Copy Text'}</button>
+
+          {/* Export Dropdown */}
+          <div className="relative group inline-block">
+            <button className="px-5 py-2 bg-indigo-600 text-white rounded-md text-[10px] font-black uppercase shadow-lg active:scale-95 transition-all flex items-center gap-2 group-hover:rounded-b-none">
+              Export / Copy <Icon name="ChevronDown" size={12} />
+            </button>
+            {/* Invisible bridge to prevent closing on gap */}
+            <div className="absolute top-full left-0 w-full h-2 bg-transparent"></div>
+            <div className="absolute top-[calc(100%+4px)] right-0 w-48 bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden hidden group-hover:block z-50 animate-in fade-in slide-in-from-top-2">
+              <button onClick={copyToClipboard} className="w-full text-left px-4 py-3 hover:bg-slate-50 text-xs font-bold text-slate-700 flex items-center gap-2">
+                <Icon name="Copy" size={14} className="text-slate-400" /> Copy Text
+              </button>
+              <div className="h-px bg-slate-100 my-0"></div>
+              <button onClick={() => handleExport('docx')} className="w-full text-left px-4 py-3 hover:bg-slate-50 text-xs font-bold text-slate-700 flex items-center gap-2">
+                <Icon name="FileText" size={14} className="text-blue-500" /> DOCX (Word)
+              </button>
+              <button onClick={() => handleExport('pdf')} className="w-full text-left px-4 py-3 hover:bg-slate-50 text-xs font-bold text-slate-700 flex items-center gap-2">
+                <Icon name="File" size={14} className="text-red-500" /> PDF Document
+              </button>
+              <button onClick={() => handleExport('rtf')} className="w-full text-left px-4 py-3 hover:bg-slate-50 text-xs font-bold text-slate-700 flex items-center gap-2">
+                <Icon name="FileType" size={14} className="text-slate-500" /> RTF (Rich Text)
+              </button>
+            </div>
+          </div>
         </div>
       </header>
 

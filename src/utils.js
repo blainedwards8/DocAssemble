@@ -80,20 +80,32 @@ export const parseMarkdown = (text, startOffset = 1, continuous = false, tierSty
     return result.join('');
 };
 
-export const triggerSave = async (content, suggestedName, mimeType, extension) => {
-    if ('showSaveFilePicker' in window) {
+// --- 3. Save Function ---
+export const triggerSave = async (content, filename, mimeType) => {
+    if (typeof window.showSaveFilePicker === 'function') {
         try {
-            const handle = await window.showSaveFilePicker({ suggestedName, types: [{ description: extension.toUpperCase() + ' Document', accept: { [mimeType]: [`.${extension}`] } }] });
+            const handle = await window.showSaveFilePicker({
+                suggestedName: filename,
+                types: [{ description: 'File', accept: { [mimeType]: [`.${filename.split('.').pop()}`] } }],
+            });
             const writable = await handle.createWritable();
             await writable.write(content);
             await writable.close();
-            return true;
-        } catch (err) { if (err.name !== 'AbortError') console.error('File Picker Error:', err); return false; }
+            return;
+        } catch (err) {
+            if (err.name !== 'AbortError') console.error('Save failed', err);
+            // Fallback if user cancels or error
+        }
     }
-    const blob = new Blob([content], { type: mimeType });
+
+    // Fallback
+    const blob = content instanceof Blob ? content : new Blob([content], { type: mimeType });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = suggestedName; a.click();
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    return true;
 };
