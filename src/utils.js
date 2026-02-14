@@ -1,5 +1,5 @@
 
-export const resolveVariables = (text, variables, isCopying = false) => {
+export const resolveVariables = (text, variables, isCopying = false, pathPrefix = "") => {
     if (!text) return "";
 
     // 1. Process Loops
@@ -11,21 +11,25 @@ export const resolveVariables = (text, variables, isCopying = false) => {
                 List Variable {${listKey}} is empty.
             </div>`;
         }
-        return listData.map((item) => resolveVariables(subContent, item, isCopying)).join("");
+        // distinct key for each item in loop based on prefix
+        const basePrefix = pathPrefix ? `${pathPrefix}.${listKey}` : listKey;
+        return listData.map((item, index) => resolveVariables(subContent, item, isCopying, `${basePrefix}[${index}]`)).join("");
     });
 
     // 2. Process Variables
     return processedText.replace(/\{([a-zA-Z0-9_]+)\}/g, (match, name) => {
         const isFilled = variables[name] !== undefined && variables[name] !== "";
-        // User wants {value} in UI to stand out
         const displayValue = isFilled ? variables[name] : match;
         const copyValue = isFilled ? variables[name] : match;
 
         if (isCopying) return copyValue;
 
+        const fullPath = pathPrefix ? `${pathPrefix}.${name}` : name;
+
+        // Add Data Attribute for Click Handler
         return isFilled
-            ? `<span class="bg-emerald-50 text-emerald-700 px-1 rounded font-bold border border-dashed border-emerald-300 font-mono text-[0.85em]">${displayValue}</span>`
-            : `<span class="bg-amber-50 text-amber-700 px-1 rounded border border-dashed border-amber-300 font-mono text-[0.85em] font-bold">${displayValue}</span>`;
+            ? `<span data-variable="${fullPath}" class="bg-emerald-50 hover:bg-emerald-100 cursor-pointer text-emerald-700 px-1 rounded font-bold border border-dashed border-emerald-300 font-mono text-[0.85em] transition-colors" title="Click to Edit">${displayValue}</span>`
+            : `<span data-variable="${fullPath}" class="bg-amber-50 hover:bg-amber-100 cursor-pointer text-amber-700 px-1 rounded border border-dashed border-amber-300 font-mono text-[0.85em] font-bold transition-colors" title="Click to Edit">${displayValue}</span>`;
     });
 };
 
@@ -80,6 +84,7 @@ export const parseMarkdown = (text, startOffset = 1, continuous = false, tierSty
     return result.join('');
 };
 
+
 // --- 3. Save Function ---
 export const triggerSave = async (content, filename, mimeType) => {
     if (typeof window.showSaveFilePicker === 'function') {
@@ -108,4 +113,47 @@ export const triggerSave = async (content, filename, mimeType) => {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+};
+
+// --- 4. Nested Property Helpers ---
+export const getNestedValue = (obj, path) => {
+    if (!path) return undefined;
+    const parts = path.split(/[\.\[\]]+/).filter(Boolean);
+    let current = obj;
+    for (const part of parts) {
+        if (current === undefined || current === null) return undefined;
+        current = current[part];
+    }
+    return current;
+};
+
+export const setNestedValue = (obj, path, value) => {
+    const parts = path.split(/[\.\[\]]+/).filter(Boolean);
+    const newObj = Array.isArray(obj) ? [...obj] : { ...obj };
+
+    let current = newObj;
+    for (let i = 0; i < parts.length - 1; i++) {
+        const part = parts[i];
+
+        // Ensure structure exists
+        if (current[part] === undefined) {
+            // Try to determine if next is index -> array, else object
+            const isNum = !isNaN(parts[i + 1]);
+            current[part] = isNum ? [] : {};
+        }
+
+        // Clone next level for immutability
+        if (Array.isArray(current[part])) {
+            current[part] = [...current[part]];
+        } else {
+            current[part] = { ...current[part] };
+        }
+
+        current = current[part];
+    }
+
+    const lastPart = parts[parts.length - 1];
+    current[lastPart] = value;
+
+    return newObj;
 };

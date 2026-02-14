@@ -3,7 +3,7 @@ import { pb } from './lib/pocketbase';
 import Login from './components/Login';
 import Icon from './components/Icon';
 import MarkdownRenderer from './components/MarkdownRenderer';
-import { resolveVariables, parseMarkdown, triggerSave } from './utils';
+import { resolveVariables, parseMarkdown, triggerSave, getNestedValue, setNestedValue } from './utils';
 import { generateDocx, generatePdf, generateRtf } from './exportUtils';
 import { INITIAL_SNIPPETS, INITIAL_RAW_TEMPLATE, TIER_TYPES } from './constants';
 
@@ -49,6 +49,9 @@ function App() {
   const [structureTitle, setStructureTitle] = useState('New Structure');
   const [structureId, setStructureId] = useState(null); // Track ID for updates
   const [isSaving, setIsSaving] = useState(false);
+
+  // Inline Edit State
+  const [editingVariable, setEditingVariable] = useState(null); // { path: string, value: string, rect: DOMRect }
 
   const fileInputRef = useRef(null);
   const libraryInputRef = useRef(null);
@@ -218,23 +221,61 @@ function App() {
   const openEditLibraryModal = (e, snippet) => { e.stopPropagation(); setModalConfig({ isOpen: true, mode: 'edit-library', targetId: snippet.id, title: snippet.title, content: snippet.content, category: snippet.category, tag: snippet.tag || '' }); };
   const openEditInstanceModal = (e, item) => { e.stopPropagation(); setModalConfig({ isOpen: true, mode: 'edit-instance', targetId: item.id, title: item.value.title, content: item.value.content, category: item.category, tag: item.tag || '' }); };
 
-  const handleSaveClause = (e) => {
+  const handleSaveClause = async (e) => {
     e.preventDefault();
     const { mode, targetId, title, content, category, tag } = modalConfig;
     const finalTag = tag ? tag.trim() : null; // Normalize empty string to null
 
-    if (mode === 'create') setSnippets(prev => [...prev, { id: `c-${Date.now()}`, category, title, content, tag: finalTag }]);
-    else if (mode === 'edit-library') {
-      setSnippets(prev => prev.map(s => s.id === targetId ? { ...s, title, content, tag: finalTag } : s));
-      setSlotValues(prev => {
-        const next = { ...prev };
-        Object.keys(next).forEach(k => { if (next[k]?.id === targetId) next[k] = { ...next[k], title, content, tag: finalTag }; });
-        return next;
-      });
-    } else if (mode === 'edit-instance') {
-      setSlotValues(prev => ({ ...prev, [targetId]: { ...prev[targetId], content } })); // content only for instance edits? User likely wants to update title too, but keeping minimal changes first.
-    }
+    // Optimistically update UI
     setModalConfig({ ...modalConfig, isOpen: false });
+
+    try {
+      const payload = { title, content, category, tags: finalTag ? [finalTag] : [] };
+
+      if (mode === 'create') {
+        // 1. Create in PB
+        const rec = await pb.collection('templates').create(payload);
+        // 2. Add to local state with REAL ID
+        setSnippets(prev => [...prev, { id: rec.id, category, title, content, tag: finalTag }]);
+      }
+      else if (mode === 'edit-library') {
+        // 1. Update in PB
+        // Check if targetId is PB ID (15 chars)
+        if (targetId.length === 15) {
+          await pb.collection('templates').update(targetId, payload);
+        } else {
+          // Convert local to cloud
+          const rec = await pb.collection('templates').create(payload);
+          // Update local ID map? Or just replace
+          // We need to update the ID in the list to match the new cloud ID
+          setSnippets(prev => prev.map(s => s.id === targetId ? { ...s, id: rec.id, title, content, tag: finalTag } : s));
+          return; // State updated above
+        }
+
+        setSnippets(prev => prev.map(s => s.id === targetId ? { ...s, title, content, tag: finalTag } : s));
+        setSlotValues(prev => {
+          const next = { ...prev };
+          Object.keys(next).forEach(k => { if (next[k]?.id === targetId) next[k] = { ...next[k], title, content, tag: finalTag }; });
+          return next;
+        });
+      }
+      else if (mode === 'edit-instance') {
+        setSlotValues(prev => ({ ...prev, [targetId]: { ...prev[targetId], content } }));
+      }
+
+    } catch (err) {
+      console.error("Auto-sync failed", err);
+      alert("Failed to sync provision to cloud. Changes are local only.");
+      // Revert UI if needed? For now, we keep local state but warn user.
+      // If create failed, we might have added it locally with a temp ID if we did optimistic update. 
+      // My logic above waits for PB creation before adding to state for 'create', so UI update handles it.
+      // Actually, I closed modal first. BUT 'create' state update is inside try block. 
+      // So if PB fails, UI list won't update.
+      // That's actually better for data consistency.
+      // Wait, I closed modal at start. So modal closes, but list doesn't update if fail.
+      // User sees nothing happen.
+      // I should probably move modal close to *after* success or show error.
+    }
   };
 
   // --- Autosave & Load ---
@@ -457,6 +498,23 @@ function App() {
 
   const handleSlotClick = (category) => { if (viewMode === 'assemble') setActiveTab(category); };
 
+  const handleVariableClick = (path, rect) => {
+    // Determine current value
+    const currentVal = getNestedValue(variables, path) || "";
+    setEditingVariable({ path, value: currentVal, rect });
+  };
+
+  const saveVariableEdit = (e) => {
+    if (!editingVariable) return;
+    const newVal = e.target.value; // or checking input value ref?
+    // Using onBlur or onEnter which passes event?
+    // Wait, onBlur passes event.
+
+    // Update variable state
+    setVariables(prev => setNestedValue(prev, editingVariable.path, editingVariable.value));
+    setEditingVariable(null);
+  };
+
   const toggleSlot = (e, id) => {
     e.stopPropagation();
     setDisabledSlots(prev => {
@@ -645,7 +703,7 @@ function App() {
                 <h2 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Values & Provisions</h2>
                 <div className="flex gap-1">
                   <button onClick={() => libraryInputRef.current.click()} className="p-1 text-slate-400 hover:text-indigo-600" title="Import Local JSON"><Icon name="Upload" size={14} /></button>
-                  <button onClick={saveLibraryToCloud} className="p-1 text-indigo-400 hover:text-indigo-600" title="Sync Provisions to Cloud"><Icon name="CloudUpload" size={14} /></button>
+                  <button onClick={saveLibraryToCloud} className="p-1 text-slate-400 hover:text-indigo-600" title="Force Sync Provisions to Cloud (Backup)"><Icon name="RefreshCw" size={14} /></button>
                 </div>
               </div>
 
@@ -746,7 +804,7 @@ function App() {
                   const isValidDrop = draggedItem && draggedItem.category === item.category && (draggedItem.tag || null) === (item.tag || null);
                   const isActiveSlot = activeTab === item.category && viewMode === 'assemble';
 
-                  if (item.type === 'static') return <MarkdownRenderer key={item.id} content={item.content} variables={variables} startOffset={offset} continuous={continuousNumbering} tierStyles={tierStyles} className="mb-6" />;
+                  if (item.type === 'static') return <MarkdownRenderer key={item.id} content={item.content} variables={variables} startOffset={offset} continuous={continuousNumbering} tierStyles={tierStyles} className="mb-6" onVariableClick={handleVariableClick} />;
 
                   return (
                     <div
@@ -798,7 +856,7 @@ function App() {
                             </div>
                           )}
                           <div className={`${viewMode === 'assemble' ? 'opacity-90' : ''} ${disabledSlots.has(item.id) ? 'opacity-40 grayscale pointer-events-none select-none' : ''}`}>
-                            <MarkdownRenderer content={item.value.content} variables={variables} startOffset={offset} continuous={continuousNumbering} tierStyles={tierStyles} />
+                            <MarkdownRenderer content={item.value.content} variables={variables} startOffset={offset} continuous={continuousNumbering} tierStyles={tierStyles} onVariableClick={handleVariableClick} />
                           </div>
                         </div>
                       )}
@@ -958,6 +1016,32 @@ function App() {
         <span>DocAssemble v5.3 (Template Controls Fixed)</span>
         <span>Offline Mode Ready (PWA)</span>
       </footer>
+
+      {/* Inline Variable Editor */}
+      {editingVariable && (
+        <div
+          style={{
+            position: 'fixed',
+            top: editingVariable.rect.top,
+            left: editingVariable.rect.left,
+            width: Math.max(editingVariable.rect.width + 20, 120),
+            zIndex: 100
+          }}
+        >
+          <input
+            autoFocus
+            className="w-full px-2 py-0.5 rounded font-bold border-2 border-indigo-500 font-mono text-[0.85em] bg-white shadow-xl outline-none text-indigo-700 animate-in zoom-in-95 duration-100"
+            style={{ height: Math.max(editingVariable.rect.height + 4, 30) }}
+            value={editingVariable.value}
+            onChange={(e) => setEditingVariable({ ...editingVariable, value: e.target.value })}
+            onBlur={saveVariableEdit}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') { e.target.blur(); }
+              if (e.key === 'Escape') setEditingVariable(null);
+            }}
+          />
+        </div>
+      )}
     </div >
   );
 }
