@@ -86,7 +86,7 @@ function App() {
               category: t.category,
               title: t.title,
               content: t.content,
-              tag: t.tags ? (typeof t.tags === 'string' ? t.tags : JSON.stringify(t.tags)) : ''
+              tag: Array.isArray(t.tags) ? (t.tags[0] || '') : (t.tags || '')
             }));
 
             // Split into Structures and Provisions (Snippets)
@@ -593,8 +593,6 @@ function App() {
       setViewMode('assemble');
       setSlotValues({});
       setVariables({});
-      setSnippets([]); // Should we clear snippets? Probably keep them available as "library"
-      // Wait, snippets are loaded from DB now. So we just re-fetch or keep existing library.
       // Keeping existing library is correct as they are global templates.
     }
   };
@@ -638,10 +636,11 @@ function App() {
       // If description contains JSON, parse it.
       // Fallback: If no JSON, maybe just load PDF? No, we can't edit PDF.
       let state = {};
-      if (doc.description && doc.description.startsWith('{')) {
+      if (doc.description && (doc.description.startsWith('{') || doc.description.startsWith('['))) {
         state = JSON.parse(doc.description);
       } else {
-        alert("This document cannot be edited (missing source data). Opening PDF instead.");
+        console.warn("Document state missing or invalid:", doc.description);
+        alert(`This document cannot be edited. The source data (JSON state) is missing or corrupted in the PocketBase 'description' field. Field content: ${doc.description ? (doc.description.substring(0, 50) + '...') : 'empty'}`);
         if (doc.file) {
           const url = pb.files.getUrl(doc, doc.file);
           window.open(url, '_blank');
@@ -770,6 +769,8 @@ function App() {
           <StructureEditor
             pb={pb}
             initialStructure={editingStructure}
+            snippets={snippets}
+            onUpdateSnippets={(newSnippets) => setSnippets(newSnippets)}
             onBack={() => setViewMode('structures-dashboard')}
             onSave={(newRec) => {
               setStructures(prev => {
