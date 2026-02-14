@@ -34,7 +34,7 @@ function App() {
   const [draggedItem, setDraggedItem] = useState(null);
   const [dragOverSlotId, setDragOverSlotId] = useState(null);
   const [copyStatus, setCopyStatus] = useState(false);
-  const [modalConfig, setModalConfig] = useState({ isOpen: false, mode: 'create', targetId: null, title: '', content: '', category: null });
+  const [modalConfig, setModalConfig] = useState({ isOpen: false, mode: 'create', targetId: null, title: '', content: '', category: null, tag: '' });
 
   const fileInputRef = useRef(null);
   const libraryInputRef = useRef(null);
@@ -44,11 +44,28 @@ function App() {
     const lines = rawTemplate.split('\n');
     const result = [];
     let currentStatic = [];
+    const seenIds = new Map();
+
     lines.forEach((line, index) => {
-      const slotMatch = line.match(/^\[\[(.*)\|(.*)\]\]$/);
+      // Syntax: [[Label|Category]] or [[Label|Category|Tag]]
+      const slotMatch = line.match(/^\[\[(.*)\]\]$/);
       if (slotMatch) {
-        if (currentStatic.length > 0) { result.push({ id: `static-${result.length}`, type: 'static', content: currentStatic.join('\n') }); currentStatic = []; }
-        result.push({ id: `slot-${index}`, type: 'slot', label: slotMatch[1], category: slotMatch[2], value: slotValues[`slot-${index}`] || null });
+        const parts = slotMatch[1].split('|');
+        if (parts.length >= 2) {
+          if (currentStatic.length > 0) { result.push({ id: `static-${result.length}`, type: 'static', content: currentStatic.join('\n') }); currentStatic = []; }
+
+          const label = parts[0].trim();
+          const category = parts[1].trim();
+          const tag = parts[2] ? parts[2].trim() : null; // Optional tag
+
+          // ID Generation: Include tag in uniqueness if present
+          const baseKey = `slot-${label}-${category}-${tag || 'default'}`.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+          const count = seenIds.get(baseKey) || 0;
+          seenIds.set(baseKey, count + 1);
+          const slotId = `${baseKey}-${count}`;
+
+          result.push({ id: slotId, type: 'slot', label, category, tag, value: slotValues[slotId] || null });
+        } else currentStatic.push(line);
       } else currentStatic.push(line);
     });
     if (currentStatic.length > 0) result.push({ id: `static-${result.length}`, type: 'static', content: currentStatic.join('\n') });
@@ -130,23 +147,25 @@ function App() {
     });
   };
 
-  const openVariableModal = () => { setModalConfig({ isOpen: true, mode: 'variables', title: 'Data Workstation', content: '', category: null }); };
-  const openEditLibraryModal = (e, snippet) => { e.stopPropagation(); setModalConfig({ isOpen: true, mode: 'edit-library', targetId: snippet.id, title: snippet.title, content: snippet.content, category: snippet.category }); };
-  const openEditInstanceModal = (e, item) => { e.stopPropagation(); setModalConfig({ isOpen: true, mode: 'edit-instance', targetId: item.id, title: item.value.title, content: item.value.content, category: item.category }); };
+  const openVariableModal = () => { setModalConfig({ isOpen: true, mode: 'variables', title: 'Data Workstation', content: '', category: null, tag: '' }); };
+  const openEditLibraryModal = (e, snippet) => { e.stopPropagation(); setModalConfig({ isOpen: true, mode: 'edit-library', targetId: snippet.id, title: snippet.title, content: snippet.content, category: snippet.category, tag: snippet.tag || '' }); };
+  const openEditInstanceModal = (e, item) => { e.stopPropagation(); setModalConfig({ isOpen: true, mode: 'edit-instance', targetId: item.id, title: item.value.title, content: item.value.content, category: item.category, tag: item.tag || '' }); };
 
   const handleSaveClause = (e) => {
     e.preventDefault();
-    const { mode, targetId, title, content, category } = modalConfig;
-    if (mode === 'create') setSnippets(prev => [...prev, { id: `c-${Date.now()}`, category, title, content }]);
+    const { mode, targetId, title, content, category, tag } = modalConfig;
+    const finalTag = tag ? tag.trim() : null; // Normalize empty string to null
+
+    if (mode === 'create') setSnippets(prev => [...prev, { id: `c-${Date.now()}`, category, title, content, tag: finalTag }]);
     else if (mode === 'edit-library') {
-      setSnippets(prev => prev.map(s => s.id === targetId ? { ...s, title, content } : s));
+      setSnippets(prev => prev.map(s => s.id === targetId ? { ...s, title, content, tag: finalTag } : s));
       setSlotValues(prev => {
         const next = { ...prev };
-        Object.keys(next).forEach(k => { if (next[k]?.id === targetId) next[k] = { ...next[k], title, content }; });
+        Object.keys(next).forEach(k => { if (next[k]?.id === targetId) next[k] = { ...next[k], title, content, tag: finalTag }; });
         return next;
       });
     } else if (mode === 'edit-instance') {
-      setSlotValues(prev => ({ ...prev, [targetId]: { ...prev[targetId], content } }));
+      setSlotValues(prev => ({ ...prev, [targetId]: { ...prev[targetId], content } })); // content only for instance edits? User likely wants to update title too, but keeping minimal changes first.
     }
     setModalConfig({ ...modalConfig, isOpen: false });
   };
@@ -209,7 +228,16 @@ function App() {
     e.preventDefault(); onDragLeave();
     const snippetId = e.dataTransfer.getData('snippetId');
     const snippet = snippets.find(s => s.id === snippetId);
-    if (snippet && snippet.category === item.category) setSlotValues(prev => ({ ...prev, [item.id]: { ...snippet } }));
+
+    // Strict Tag Matching:
+    // 1. Categories must match
+    // 2. Tags must match (strict equality) - undefined/null matches undefined/null
+    const categoryMatch = snippet && snippet.category === item.category;
+    const tagMatch = (snippet?.tag || null) === (item.tag || null);
+
+    if (categoryMatch && tagMatch) {
+      setSlotValues(prev => ({ ...prev, [item.id]: { ...snippet } }));
+    }
     setDraggedItem(null);
   };
 
@@ -326,12 +354,17 @@ function App() {
                   })}
                   <div className="mt-6 space-y-2">
                     {snippets.filter(s => s.category === activeTab).map(snippet => (
-                      <div key={snippet.id} draggable onDragStart={(e) => onDragStart(e, snippet)} onDragEnd={() => setDraggedItem(null)} className="bg-white border border-slate-200 rounded-lg p-3 cursor-grab hover:border-indigo-400 hover:shadow-lg transition-all shadow-sm flex items-center justify-between group">
-                        <span className="text-[11px] font-bold text-slate-700">{snippet.title}</span>
-                        <button onClick={(e) => openEditLibraryModal(e, snippet)} className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-indigo-600 transition-opacity"><Icon name="Pencil" size={12} /></button>
+                      <div key={snippet.id} draggable onDragStart={(e) => onDragStart(e, snippet)} onDragEnd={() => setDraggedItem(null)} className="bg-white border border-slate-200 rounded-lg p-3 cursor-grab hover:border-indigo-400 hover:shadow-lg transition-all shadow-sm flex flex-col gap-1 group">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-bold text-slate-700">{snippet.title}</span>
+                          <button onClick={(e) => openEditLibraryModal(e, snippet)} className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-indigo-600 transition-opacity"><Icon name="Pencil" size={12} /></button>
+                        </div>
+                        {snippet.tag && (
+                          <span className="text-[9px] font-black uppercase text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded w-fit">{snippet.tag}</span>
+                        )}
                       </div>
                     ))}
-                    <button onClick={() => setModalConfig({ isOpen: true, mode: 'create', targetId: null, title: '', content: '', category: activeTab })} className="w-full py-3 border-2 border-dashed border-slate-100 rounded-lg text-slate-300 hover:text-indigo-400 hover:border-indigo-100 transition-all flex flex-col items-center justify-center gap-1">
+                    <button onClick={() => setModalConfig({ isOpen: true, mode: 'create', targetId: null, title: '', content: '', category: activeTab, tag: '' })} className="w-full py-3 border-2 border-dashed border-slate-100 rounded-lg text-slate-300 hover:text-indigo-400 hover:border-indigo-100 transition-all flex flex-col items-center justify-center gap-1">
                       <Icon name="PlusCircle" size={18} />
                       <span className="text-[10px] font-black uppercase">Add Clause</span>
                     </button>
@@ -364,7 +397,7 @@ function App() {
                 {parsedTemplate.map((item) => {
                   const offset = sectionListOffsets[item.id] || 1;
                   const isBeingHovered = dragOverSlotId === item.id;
-                  const isValidDrop = draggedItem && draggedItem.category === item.category;
+                  const isValidDrop = draggedItem && draggedItem.category === item.category && (draggedItem.tag || null) === (item.tag || null);
                   const isActiveSlot = activeTab === item.category && viewMode === 'assemble';
 
                   if (item.type === 'static') return <MarkdownRenderer key={item.id} content={item.content} variables={variables} startOffset={offset} continuous={continuousNumbering} tierStyles={tierStyles} className="mb-6" />;
@@ -388,7 +421,7 @@ function App() {
                         <div className="absolute -top-3 left-4 flex items-center gap-2 pointer-events-none z-10">
                           <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded shadow-sm border ${isActiveSlot ? 'bg-indigo-600 text-white border-indigo-700' : 'bg-white text-slate-400 border-slate-200'
                             }`}>
-                            {item.label} • {item.category}
+                            {item.label} • {item.category} {item.tag ? `• ${item.tag.toUpperCase()}` : ''}
                           </span>
                         </div>
                       )}
@@ -481,6 +514,12 @@ function App() {
                       <div>
                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Title</label>
                         <input type="text" required value={modalConfig.title} onChange={(e) => setModalConfig({ ...modalConfig, title: e.target.value })} className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm font-bold shadow-sm" />
+                      </div>
+                    )}
+                    {modalConfig.mode !== 'edit-instance' && (
+                      <div>
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Tag (Optional)</label>
+                        <input type="text" value={modalConfig.tag} onChange={(e) => setModalConfig({ ...modalConfig, tag: e.target.value })} className="w-full px-4 py-2 border border-slate-200 rounded-xl text-xs font-bold shadow-sm text-indigo-600" placeholder="e.g. Standard, Special, Utah Only" />
                       </div>
                     )}
                     <div>
