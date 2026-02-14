@@ -38,7 +38,7 @@ export const parseMarkdown = (text, startOffset = 1, continuous = false, tierSty
 
     lines.forEach(line => {
         const headerMatch = line.match(/^(#{1,3}) (.*$)/);
-        const listMatch = line.match(/^(\s*)([0-9a-zA-Z]+|\*|-)[\.\)] (.*$)/);
+        const listMatch = line.match(/^(\s*)([0-9a-zA-Z]+|\*|-)[.)] (.*$)/);
 
         if (headerMatch) {
             closeLists(0);

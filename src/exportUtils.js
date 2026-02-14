@@ -1,4 +1,4 @@
-import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, Indent } from "docx";
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from "docx";
 import { jsPDF } from "jspdf";
 import { resolveVariables } from "./utils";
 
@@ -45,7 +45,7 @@ const parseForExport = (parsedTemplate, variables, sectionListOffsets, disabledS
             }
 
             // 2. Lists
-            const listMatch = line.match(/^(\s*)([0-9a-zA-Z]+|\*|-)[\.\)] (.*$)/);
+            const listMatch = line.match(/^(\s*)([0-9a-zA-Z]+|\*|-)[.)] (.*$)/);
             if (listMatch) {
                 const indent = listMatch[1].length;
                 const level = Math.floor(indent / 2);

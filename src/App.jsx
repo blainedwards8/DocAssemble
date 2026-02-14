@@ -24,6 +24,31 @@ function App() {
     }
   });
 
+  const [rawTemplate, setRawTemplate] = useState(initialData.rawTemplate || INITIAL_RAW_TEMPLATE);
+  const [snippets, setSnippets] = useState(initialData.snippets || INITIAL_SNIPPETS);
+  const [structures, setStructures] = useState([]); // Document Structure Templates
+  const [variables, setVariables] = useState(initialData.variables || {
+    petitioner_name: "Jane Doe",
+    respondent_name: "John Smith",
+    children: [{ name: "Alice Smith", dob: "January 15, 2012" }]
+  });
+  const [continuousNumbering, setContinuousNumbering] = useState(initialData.continuousNumbering !== undefined ? initialData.continuousNumbering : true);
+  const [tierStyles, setTierStyles] = useState(initialData.tierStyles || ['decimal', 'lower-alpha', 'lower-roman']);
+  const [viewMode, setViewMode] = useState('assemble');
+  const [slotValues, setSlotValues] = useState(initialData.slotValues || {});
+  const [disabledSlots, setDisabledSlots] = useState(new Set(initialData.disabledSlots || []));
+  const [lastSaved, setLastSaved] = useState(null);
+
+  const [activeTab, setActiveTab] = useState(null);
+  const [draggedItem, setDraggedItem] = useState(null);
+  const [dragOverSlotId, setDragOverSlotId] = useState(null);
+
+  const [modalConfig, setModalConfig] = useState({ isOpen: false, mode: 'create', targetId: null, title: '', content: '', category: null, tag: '' });
+
+  const fileInputRef = useRef(null);
+  const libraryInputRef = useRef(null);
+  const structureInputRef = useRef(null);
+
   useEffect(() => {
     // Auth Listener
     return pb.authStore.onChange((token, model) => {
@@ -41,14 +66,20 @@ function App() {
         try {
           const templates = await pb.collection('templates').getFullList({ sort: 'title' });
           if (templates.length > 0) {
-            const formatted = templates.map(t => ({
+            const allItems = templates.map(t => ({
               id: t.id,
               category: t.category,
               title: t.title,
-              content: t.content, // Assuming content is the markdown
-              tag: t.tags ? (typeof t.tags === 'string' ? t.tags : JSON.stringify(t.tags)) : '' // basic handling
+              content: t.content,
+              tag: t.tags ? (typeof t.tags === 'string' ? t.tags : JSON.stringify(t.tags)) : ''
             }));
-            setSnippets(formatted);
+
+            // Split into Structures and Provisions (Snippets)
+            const structItems = allItems.filter(i => i.category === 'Structure');
+            const snippetItems = allItems.filter(i => i.category !== 'Structure');
+
+            setStructures(structItems);
+            setSnippets(snippetItems);
           }
         } catch (err) {
           console.warn("Templates collection not found or empty", err);
@@ -70,39 +101,13 @@ function App() {
     loadData();
   }, [user]);
 
-
-
-  const [rawTemplate, setRawTemplate] = useState(initialData.rawTemplate || INITIAL_RAW_TEMPLATE);
-  const [snippets, setSnippets] = useState(initialData.snippets || INITIAL_SNIPPETS);
-  const [variables, setVariables] = useState(initialData.variables || {
-    petitioner_name: "Jane Doe",
-    respondent_name: "John Smith",
-    children: [{ name: "Alice Smith", dob: "January 15, 2012" }]
-  });
-  const [continuousNumbering, setContinuousNumbering] = useState(initialData.continuousNumbering !== undefined ? initialData.continuousNumbering : true);
-  const [tierStyles, setTierStyles] = useState(initialData.tierStyles || ['decimal', 'lower-alpha', 'lower-roman']);
-  const [viewMode, setViewMode] = useState('assemble');
-  const [slotValues, setSlotValues] = useState(initialData.slotValues || {});
-  const [disabledSlots, setDisabledSlots] = useState(new Set(initialData.disabledSlots || []));
-  const [lastSaved, setLastSaved] = useState(null);
-
-  const [activeTab, setActiveTab] = useState(null);
-  const [draggedItem, setDraggedItem] = useState(null);
-  const [dragOverSlotId, setDragOverSlotId] = useState(null);
-  const [copyStatus, setCopyStatus] = useState(false);
-  const [modalConfig, setModalConfig] = useState({ isOpen: false, mode: 'create', targetId: null, title: '', content: '', category: null, tag: '' });
-
-  const fileInputRef = useRef(null);
-  const libraryInputRef = useRef(null);
-  const structureInputRef = useRef(null);
-
   const parsedTemplate = useMemo(() => {
     const lines = rawTemplate.split('\n');
     const result = [];
     let currentStatic = [];
     const seenIds = new Map();
 
-    lines.forEach((line, index) => {
+    lines.forEach((line) => {
       // Syntax: [[Label|Category]] or [[Label|Category|Tag]]
       const slotMatch = line.match(/^\[\[(.*)\]\]$/);
       if (slotMatch) {
@@ -135,6 +140,7 @@ function App() {
   }, [parsedTemplate]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (!activeTab && activeCategories.length > 0) setActiveTab(activeCategories[0]);
     else if (activeTab && !activeCategories.includes(activeTab)) setActiveTab(activeCategories[0] || null);
   }, [activeCategories, activeTab]);
@@ -233,6 +239,7 @@ function App() {
   useEffect(() => {
     const state = { rawTemplate, snippets, variables, tierStyles, continuousNumbering, slotValues, disabledSlots: Array.from(disabledSlots) };
     localStorage.setItem('DOCASSEMBLE_AUTOSAVE_V1', JSON.stringify(state));
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLastSaved(new Date());
   }, [rawTemplate, snippets, variables, tierStyles, continuousNumbering, slotValues, disabledSlots]);
 
@@ -248,10 +255,7 @@ function App() {
     await triggerSave(JSON.stringify(state, null, 2), `Project_${Date.now()}.json`, 'application/json', 'json');
   };
 
-  const exportLibrary = async () => {
-    const state = { type: 'docassemble-library', snippets };
-    await triggerSave(JSON.stringify(state, null, 2), `Library_${Date.now()}.json`, 'application/json', 'json');
-  };
+
 
   const exportTemplate = async () => {
     const meta = `---\ntier1: ${tierStyles[0]}\ntier2: ${tierStyles[1]}\ntier3: ${tierStyles[2]}\ncontinuous: ${continuousNumbering}\n---\n\n`;
@@ -277,7 +281,7 @@ function App() {
     const selection = window.getSelection(); selection.removeAllRanges(); selection.addRange(range);
     document.execCommand('copy');
     selection.removeAllRanges(); document.body.removeChild(hiddenDiv);
-    setCopyStatus(true); setTimeout(() => setCopyStatus(false), 2000);
+    selection.removeAllRanges(); document.body.removeChild(hiddenDiv);
   };
 
   const handleExport = async (format) => {
@@ -399,9 +403,36 @@ function App() {
     });
   };
 
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // Filter snippets based on search
+  const filteredSnippets = useMemo(() => {
+    if (!searchTerm) return snippets;
+    const lower = searchTerm.toLowerCase();
+    return snippets.filter(s =>
+      (s.title && s.title.toLowerCase().includes(lower)) ||
+      (s.tag && s.tag.toLowerCase().includes(lower)) ||
+      (s.category && s.category.toLowerCase().includes(lower))
+    );
+  }, [snippets, searchTerm]);
+
+  const filteredCategories = useMemo(() => {
+    if (!searchTerm) return activeCategories;
+    const cats = new Set();
+    filteredSnippets.forEach(s => cats.add(s.category));
+    return Array.from(cats).sort();
+  }, [activeCategories, filteredSnippets, searchTerm]);
+
+  // Update active tab if current one disappears due to filter
+  if (searchTerm && filteredCategories.length > 0 && !filteredCategories.includes(activeTab)) {
+    setActiveTab(filteredCategories[0]);
+  }
+
+
   if (!user) {
     return <Login onLogin={setUser} />;
   }
+
 
   return (
     <div className="flex flex-col h-screen bg-slate-100 text-slate-900 font-sans overflow-hidden select-none">
@@ -521,81 +552,96 @@ function App() {
       </header>
 
       <main className="flex flex-1 overflow-hidden">
-        {viewMode !== 'preview' && (
-          <aside className="w-72 border-r border-slate-200 bg-white flex flex-col shrink-0 shadow-sm">
-            <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+
+        {viewMode === 'assemble' && (
+          <aside className="w-80 border-r border-slate-200 bg-white flex flex-col shrink-0 shadow-sm overflow-hidden z-10">
+            {/* 1. Status Section */}
+            <div className="p-4 border-b border-slate-100 bg-slate-50/50">
+              <h2 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Document Status</h2>
+              {(() => {
+                const totalSlots = parsedTemplate.filter(i => i.type === 'slot').length;
+                const filledSlots = parsedTemplate.filter(i => i.type === 'slot' && i.value).length;
+                const isAllFilled = totalSlots > 0 && totalSlots === filledSlots;
+
+                return (
+                  <div className={`px-3 py-2.5 rounded-lg border flex items-center justify-between shadow-sm ${isAllFilled ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-white border-slate-200 text-slate-600'}`}>
+                    <div className="flex items-center gap-2">
+                      <Icon name={isAllFilled ? "CheckCircle2" : "PieChart"} size={16} className={isAllFilled ? "text-emerald-500" : "text-slate-400"} />
+                      <span className="text-[11px] font-black uppercase tracking-wide">{filledSlots}/{totalSlots} Completed</span>
+                    </div>
+                    {isAllFilled && <span className="text-[9px] font-black uppercase bg-emerald-100 px-1.5 py-0.5 rounded text-emerald-700">Ready</span>}
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* 2. Provision Library (Formerly Template Library) */}
+            <div className="flex-1 overflow-y-auto p-4 custom-scrollbar flex flex-col">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                  {viewMode === 'assemble' ? 'Library' : 'Template Logic'}
-                </h2>
+                <h2 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Values & Provisions</h2>
                 <div className="flex gap-1">
-                  {viewMode === 'assemble' ? (
-                    <>
-                      <button onClick={() => libraryInputRef.current.click()} className="p-1 text-slate-400 hover:text-indigo-600" title="Import Local JSON"><Icon name="Upload" size={14} /></button>
-                      <button onClick={saveLibraryToCloud} className="p-1 text-indigo-400 hover:text-indigo-600" title="Sync to Cloud"><Icon name="CloudUpload" size={14} /></button>
-                    </>
-                  ) : (
-                    <>
-                      <button onClick={() => structureInputRef.current.click()} className="p-1 text-slate-400 hover:text-indigo-600"><Icon name="Upload" size={14} /></button>
-                      <button onClick={exportTemplate} className="p-1 text-slate-400 hover:text-indigo-600"><Icon name="Save" size={14} /></button>
-                    </>
-                  )}
+                  <button onClick={() => libraryInputRef.current.click()} className="p-1 text-slate-400 hover:text-indigo-600" title="Import Local JSON"><Icon name="Upload" size={14} /></button>
+                  <button onClick={saveLibraryToCloud} className="p-1 text-indigo-400 hover:text-indigo-600" title="Sync Provisions to Cloud"><Icon name="CloudUpload" size={14} /></button>
                 </div>
               </div>
 
-              {viewMode === 'assemble' && (
-                <div className="flex flex-col gap-1.5">
-                  {/* Progress Indicator */}
-                  {(() => {
-                    const totalSlots = parsedTemplate.filter(i => i.type === 'slot').length;
-                    const filledSlots = parsedTemplate.filter(i => i.type === 'slot' && i.value).length;
-                    const isAllFilled = totalSlots > 0 && totalSlots === filledSlots;
+              {/* Search Input */}
+              <div className="relative mb-3 shrink-0">
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Search provisions..."
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold outline-none focus:border-indigo-400 pl-8"
+                />
+                <div className="absolute left-2.5 top-2.5 text-slate-400"><Icon name="Search" size={12} /></div>
+              </div>
 
-                    return (
-                      <div className={`mb-2 px-3 py-2.5 rounded-lg border flex items-center justify-between shadow-sm ${isAllFilled ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-amber-50 border-amber-200 text-amber-700'}`}>
-                        <div className="flex items-center gap-2">
-                          <Icon name={isAllFilled ? "CheckCircle2" : "AlertCircle"} size={16} />
-                          <span className="text-[11px] font-black uppercase tracking-wide">{filledSlots}/{totalSlots} Sections</span>
-                        </div>
-                        {isAllFilled && <span className="text-[9px] font-black uppercase bg-emerald-100 px-1.5 py-0.5 rounded">Ready</span>}
-                      </div>
-                    );
-                  })()}
+              <div className="space-y-1">
+                {activeCategories.length === 0 && filteredCategories.length === 0 && (
+                  <div className="text-center py-8 border-2 border-dashed border-slate-100 rounded-lg">
+                    <p className="text-slate-300 text-[10px] font-bold uppercase">No provisions found</p>
+                  </div>
+                )}
 
-                  {activeCategories.map(cat => {
-                    const relevantSlots = parsedTemplate.filter(item => item.type === 'slot' && item.category === cat);
-                    const isComplete = relevantSlots.length > 0 && relevantSlots.every(slot => slot.value !== null);
-                    const isActiveCategory = activeTab === cat;
-                    let btnClass = `w-full text-left px-3 py-2.5 rounded-lg text-[11px] font-bold transition-all border flex items-center justify-between `;
-                    if (isComplete) btnClass += isActiveCategory ? "bg-emerald-600 border-emerald-600 text-white shadow-md ring-2 ring-emerald-100" : "bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100";
-                    else btnClass += isActiveCategory ? "bg-indigo-600 border-indigo-600 text-white shadow-md" : "bg-slate-50 border-slate-100 text-slate-500 hover:bg-slate-100";
+                {filteredCategories.map(cat => {
+                  const relevantSlots = parsedTemplate.filter(item => item.type === 'slot' && item.category === cat);
+                  const isComplete = relevantSlots.length > 0 && relevantSlots.every(slot => slot.value !== null);
+                  const isActiveCategory = activeTab === cat;
+                  let btnClass = `w-full text-left px-3 py-2.5 rounded-lg text-[11px] font-bold transition-all border flex items-center justify-between `;
+                  // Style logic
+                  if (isComplete) btnClass += isActiveCategory ? "bg-emerald-600 border-emerald-600 text-white shadow-md ring-2 ring-emerald-100" : "bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100";
+                  else btnClass += isActiveCategory ? "bg-indigo-600 border-indigo-600 text-white shadow-md" : "bg-slate-50 border-slate-100 text-slate-500 hover:bg-slate-100";
 
-                    return (
-                      <button key={cat} onClick={() => setActiveTab(cat)} className={btnClass}>
+                  return (
+                    <div key={cat} className="space-y-1">
+                      <button onClick={() => setActiveTab(isActiveCategory ? null : cat)} className={btnClass}>
                         <span className="truncate pr-2">{cat.toUpperCase()}</span>
                         {isComplete && <Icon name="CheckCircle2" size={14} className={isActiveCategory ? "text-white" : "text-emerald-500"} />}
                       </button>
-                    );
-                  })}
-                  <div className="mt-6 space-y-2">
-                    {snippets.filter(s => s.category === activeTab).map(snippet => (
-                      <div key={snippet.id} draggable onDragStart={(e) => onDragStart(e, snippet)} onDragEnd={() => setDraggedItem(null)} className="bg-white border border-slate-200 rounded-lg p-3 cursor-grab hover:border-indigo-400 hover:shadow-lg transition-all shadow-sm flex flex-col gap-1 group">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[11px] font-bold text-slate-700">{snippet.title}</span>
-                          <button onClick={(e) => openEditLibraryModal(e, snippet)} className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-indigo-600 transition-opacity"><Icon name="Pencil" size={12} /></button>
+                      {isActiveCategory && (
+                        <div className="pl-2 pr-1 py-2 space-y-2 border-l-2 border-slate-100 ml-2 animate-in slide-in-from-left-1 duration-200">
+                          {filteredSnippets.filter(s => s.category === cat).map(snippet => (
+                            <div key={snippet.id} draggable onDragStart={(e) => onDragStart(e, snippet)} onDragEnd={() => setDraggedItem(null)} className="bg-white border border-slate-200 rounded-lg p-3 cursor-grab hover:border-indigo-400 hover:shadow-md transition-all shadow-sm flex flex-col gap-1 group">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[11px] font-bold text-slate-700">{snippet.title}</span>
+                                <button onClick={(e) => openEditLibraryModal(e, snippet)} className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-indigo-600 transition-opacity"><Icon name="Pencil" size={12} /></button>
+                              </div>
+                              {snippet.tag && (
+                                <span className="text-[9px] font-black uppercase text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded w-fit">{snippet.tag}</span>
+                              )}
+                            </div>
+                          ))}
+                          <button onClick={() => setModalConfig({ isOpen: true, mode: 'create', targetId: null, title: '', content: '', category: cat, tag: '' })} className="w-full py-2 border-2 border-dashed border-slate-100 rounded-lg text-slate-300 hover:text-indigo-400 hover:border-indigo-100 transition-all flex items-center justify-center gap-1">
+                            <Icon name="PlusCircle" size={14} />
+                            <span className="text-[9px] font-black uppercase">Add New Provision</span>
+                          </button>
                         </div>
-                        {snippet.tag && (
-                          <span className="text-[9px] font-black uppercase text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded w-fit">{snippet.tag}</span>
-                        )}
-                      </div>
-                    ))}
-                    <button onClick={() => setModalConfig({ isOpen: true, mode: 'create', targetId: null, title: '', content: '', category: activeTab, tag: '' })} className="w-full py-3 border-2 border-dashed border-slate-100 rounded-lg text-slate-300 hover:text-indigo-400 hover:border-indigo-100 transition-all flex flex-col items-center justify-center gap-1">
-                      <Icon name="PlusCircle" size={18} />
-                      <span className="text-[10px] font-black uppercase">Add Clause</span>
-                    </button>
-                  </div>
-                </div>
-              )}
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </aside>
         )}
@@ -689,19 +735,56 @@ function App() {
           )}
         </section>
 
+        {/* Right Sidebar: Document Structures (Templates) */}
+        {viewMode !== 'preview' && (
+          <aside className="w-64 border-l border-slate-200 bg-white flex flex-col shrink-0 shadow-sm z-10">
+            <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+              <h2 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Document Structures</h2>
+              <button onClick={() => structureInputRef.current.click()} className="p-1 text-slate-400 hover:text-indigo-600" title="Load Markdown File"><Icon name="Upload" size={14} /></button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 custom-scrollbar space-y-3">
+              {/* List of Templates (Structures) */}
+              {structures.length === 0 ? (
+                <div className="text-center py-8 border-2 border-dashed border-slate-100 rounded-lg">
+                  <p className="text-slate-300 text-[10px] font-bold uppercase">No structures found</p>
+                  <p className="text-[9px] text-slate-300 mt-1">Check 'templates' collection</p>
+                </div>
+              ) : (
+                structures.map(t => (
+                  <div key={t.id} className="group relative bg-white border border-slate-200 rounded-lg p-3 hover:border-indigo-400 hover:shadow-md transition-all cursor-pointer" onClick={() => {
+                    if (confirm(`Load template "${t.title}"? Current progress may be lost.`)) {
+                      setRawTemplate(t.content);
+                      setSlotValues({}); // Reset values on new template load
+                      setViewMode('assemble');
+                    }
+                  }}>
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <h3 className="text-[11px] font-bold text-slate-700 leading-tight mb-1">{t.title}</h3>
+                        <p className="text-[9px] text-slate-400 font-medium uppercase tracking-wider">Structure</p>
+                      </div>
+                      <Icon name="FileText" size={14} className="text-slate-300 group-hover:text-indigo-500" />
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </aside>
+        )}
+
         {modalConfig.isOpen && (
-          <div className="absolute inset-0 z-50 flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setModalConfig({ ...modalConfig, isOpen: false })} />
-            <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-4xl p-10 flex flex-col border border-slate-200 overflow-hidden max-h-[95vh]">
-              <div className="flex justify-between items-center mb-8 border-b pb-4 shrink-0">
-                <div className="flex items-center gap-2">
-                  <div className="p-2 bg-indigo-100 rounded-lg text-indigo-600">
+          <div className="fixed inset-0 bg-slate-900 bg-opacity-50 flex items-center justify-center z-50 animate-in fade-in">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-xl flex flex-col max-h-[90vh] overflow-hidden animate-in zoom-in-90 duration-300">
+              <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="bg-slate-100 p-2 rounded-full text-indigo-600">
                     <Icon name={modalConfig.mode === 'variables' ? 'Database' : 'FileText'} />
                   </div>
                   <h3 className="font-black text-slate-800 uppercase tracking-widest text-xs">{modalConfig.title}</h3>
-                </div>
+                </div >
                 <button onClick={() => setModalConfig({ ...modalConfig, isOpen: false })} className="text-slate-400 hover:text-slate-600 bg-slate-100 p-2 rounded-full transition-colors"><Icon name="X" /></button>
-              </div>
+              </div >
               <div className="flex-1 overflow-y-auto custom-scrollbar">
                 {modalConfig.mode === 'variables' ? (
                   <div className="space-y-12">
@@ -765,15 +848,16 @@ function App() {
                   </form>
                 )}
               </div>
-            </div>
-          </div>
-        )}
+            </div >
+          </div >
+        )
+        }
         <footer className="h-10 bg-white border-t border-slate-200 px-6 flex items-center justify-between text-[9px] font-black text-slate-300 uppercase tracking-widest shrink-0">
           <span>DocAssemble v5.3 (Template Controls Fixed)</span>
           <span>Offline Mode Ready (PWA)</span>
         </footer>
-      </main>
-    </div>
+      </main >
+    </div >
   );
 }
 
