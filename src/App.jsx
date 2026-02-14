@@ -43,6 +43,7 @@ function App() {
   const [viewMode, setViewMode] = useState('dashboard'); // 'dashboard', 'assemble', 'structure', 'preview'
   const [draggedItem, setDraggedItem] = useState(null);
   const [dragOverSlotId, setDragOverSlotId] = useState(null);
+  const [activeDocumentId, setActiveDocumentId] = useState(null); // Track current edited document ID
 
   const [modalConfig, setModalConfig] = useState({ isOpen: false, mode: 'create', targetId: null, title: '', content: '', category: null, tag: '' });
 
@@ -403,15 +404,42 @@ function App() {
       const filename = `Generated_${Date.now()}.pdf`;
       const blob = generatePdf(parsedTemplate, variables, sectionListOffsets, continuousNumbering, tierStyles, disabledSlots);
 
+      // Serialize State
+      const state = {
+        rawTemplate,
+        structureId,
+        structureTitle,
+        variables,
+        slotValues,
+        tierStyles,
+        continuousNumbering
+      };
+
       // formData
       const formData = new FormData();
-      formData.append('title', `DocAssemble Generated - ${new Date().toLocaleString()}`);
+      // If updating, keep existing title or allowing update? Let's auto-generate title if new, or keep existing.
+      // Actually, we usually want to name the document. 
+      // For now, if activeDocumentId exists, we update it.
+      if (!activeDocumentId) {
+        const name = prompt("Enter Document Name:", structureTitle || "New Document");
+        if (!name) return;
+        formData.append('title', name);
+      }
+
       formData.append('matter', activeMatterId);
       formData.append('file', blob, filename);
-      // formData.append('summary', 'Generated via DocAssemble Desktop');
+      // Store state in description (hacky but effective if no data field)
+      formData.append('description', JSON.stringify(state));
 
-      await pb.collection('documents').create(formData);
-      alert("Document saved to Matter successfully!");
+      if (activeDocumentId) {
+        await pb.collection('documents').update(activeDocumentId, formData);
+        alert("Document updated successfully!");
+      } else {
+        const rec = await pb.collection('documents').create(formData);
+        setActiveDocumentId(rec.id);
+        alert("Document created and saved to Matter!");
+      }
+
     } catch (e) {
       console.error("Cloud Save Failed", e);
       alert("Failed to save to cloud: " + e.message);
@@ -556,6 +584,7 @@ function App() {
       setRawTemplate(structure.content);
       setStructureTitle(structure.title);
       setStructureId(structure.id); // Set ID for updates
+      setActiveDocumentId(null); // New from template = new document (not saved yet)
       setViewMode('assemble');
       setSlotValues({});
       setVariables({});
@@ -575,15 +604,41 @@ function App() {
     }
   };
 
-  const openDocument = (doc) => {
-    // If doc has a file (PDF/DOCX), open it.
-    // If it's a saved assembly session (future feature), load it.
-    if (doc.file) {
-      const url = pb.files.getUrl(doc, doc.file);
-      window.open(url, '_blank');
-    } else {
-      alert("This document does not have a viewable file.");
+  const loadDocument = (doc) => {
+    // Restore state from JSON if available
+    try {
+      // If description contains JSON, parse it.
+      // Fallback: If no JSON, maybe just load PDF? No, we can't edit PDF.
+      let state = {};
+      if (doc.description && doc.description.startsWith('{')) {
+        state = JSON.parse(doc.description);
+      } else {
+        alert("This document cannot be edited (missing source data). Opening PDF instead.");
+        if (doc.file) {
+          const url = pb.files.getUrl(doc, doc.file);
+          window.open(url, '_blank');
+        }
+        return;
+      }
+
+      setRawTemplate(state.rawTemplate || "");
+      setStructureTitle(state.structureTitle || doc.title);
+      setStructureId(state.structureId || null);
+      setVariables(state.variables || {});
+      setSlotValues(state.slotValues || {});
+      setTierStyles(state.tierStyles || ['decimal', 'lower-alpha', 'lower-roman']);
+      setContinuousNumbering(state.continuousNumbering !== undefined ? state.continuousNumbering : true);
+
+      setActiveDocumentId(doc.id);
+      setViewMode('assemble');
+    } catch (err) {
+      console.error("Failed to load document state:", err);
+      alert("Failed to load document for editing.");
     }
+  };
+
+  const openDocument = (doc) => {
+    loadDocument(doc);
   };
 
   if (!pb.authStore.isValid) {
