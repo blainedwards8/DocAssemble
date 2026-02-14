@@ -169,12 +169,12 @@ export const extractStructureMetadata = (markdown) => {
     const lines = markdown.split('\n');
 
     lines.forEach(line => {
-        // 1. Sections (# Title)
-        const sectionMatch = line.match(/^(#{1,6})\s+(.*)/);
+        // 1. Sections [[Label|Category]] or [[Label|Category|Tag]]
+        const sectionMatch = line.match(/^\[\[([^|\]]+).*\]\]$/);
         if (sectionMatch) {
             sections.push({
-                level: sectionMatch[1].length,
-                title: sectionMatch[2].trim()
+                level: 1, // Double brackets are always top-level structural split points
+                title: sectionMatch[1].trim()
             });
         }
 

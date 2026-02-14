@@ -85,11 +85,13 @@ const StructureEditor = ({ pb, initialStructure, onSave, onBack }) => {
                             value={content}
                             onChange={(e) => setContent(e.target.value)}
                             className="absolute inset-0 w-full h-full p-8 text-sm text-slate-700 leading-relaxed resize-none focus:outline-none custom-scrollbar selection:bg-indigo-100 selection:text-indigo-700"
-                            placeholder="# Write your structure here...
-                            
+                            placeholder="# Document Title
+
 Use {variable_name} for variables.
-Use # for Sections.
-Use {#foreach list}...{/foreach} for loops."
+Use [[Section Name|Category]] for document sections/structural elements.
+Use {#foreach list}...{/foreach} for loops.
+
+Normal # Markdown Headers are supported."
                             spellCheck={false}
                         />
                     </div>
@@ -177,11 +179,18 @@ Use {#foreach list}...{/foreach} for loops."
                         </header>
                         <div className="flex-1 overflow-y-auto p-8 custom-scrollbar space-y-8">
                             <div>
-                                <h3 className="text-xs font-black uppercase tracking-widest text-indigo-500 mb-3">Sections & Titles</h3>
+                                <h3 className="text-xs font-black uppercase tracking-widest text-indigo-500 mb-3">Structural Sections</h3>
                                 <div className="space-y-2 font-mono text-xs bg-slate-50 p-4 rounded-xl border border-slate-100">
-                                    <div className="flex justify-between border-b border-slate-100 pb-2"><span className="text-slate-400"># Title</span> <span className="text-slate-800">Main Header</span></div>
-                                    <div className="flex justify-between border-b border-slate-100 py-2"><span className="text-slate-400">## Title</span> <span className="text-slate-800">Secondary Header</span></div>
-                                    <div className="flex justify-between pt-2"><span className="text-slate-400">### Title</span> <span className="text-slate-800">Third Level</span></div>
+                                    <div className="flex justify-between border-b border-slate-100 pb-2"><span className="text-slate-400">[[Title|Category]]</span> <span className="text-slate-800">New Section</span></div>
+                                    <div className="flex justify-between pt-2"><span className="text-slate-400">[[Title|Category|Tag]]</span> <span className="text-slate-800">With Tag</span></div>
+                                    <p className="text-[10px] text-slate-400 italic mt-4 font-sans">Note: Sections define the logic and split points of your document.</p>
+                                </div>
+                            </div>
+                            <div>
+                                <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-3">Markdown Headers</h3>
+                                <div className="space-y-2 font-mono text-xs bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                    <div className="flex justify-between border-b border-slate-100 pb-2"><span className="text-slate-400"># Title</span> <span className="text-slate-800">Heading 1</span></div>
+                                    <div className="flex justify-between pt-2"><span className="text-slate-400">## Title</span> <span className="text-slate-800">Heading 2</span></div>
                                 </div>
                             </div>
                             <div>

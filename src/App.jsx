@@ -151,7 +151,7 @@ function App() {
   const activeCategories = useMemo(() => {
     const categories = new Set();
     parsedTemplate.forEach(item => { if (item.type === 'slot') categories.add(item.category); });
-    return Array.from(categories).sort();
+    return Array.from(categories);
   }, [parsedTemplate]);
 
   useEffect(() => {
@@ -574,9 +574,8 @@ function App() {
 
   const filteredCategories = useMemo(() => {
     if (!searchTerm) return activeCategories;
-    const cats = new Set();
-    filteredSnippets.forEach(s => cats.add(s.category));
-    return Array.from(cats).sort();
+    const snippetCats = new Set(filteredSnippets.map(s => s.category));
+    return activeCategories.filter(cat => snippetCats.has(cat));
   }, [activeCategories, filteredSnippets, searchTerm]);
 
   // Update active tab if current one disappears due to filter
