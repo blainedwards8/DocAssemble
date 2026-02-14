@@ -28,6 +28,7 @@ function App() {
   const [tierStyles, setTierStyles] = useState(initialData.tierStyles || ['decimal', 'lower-alpha', 'lower-roman']);
   const [viewMode, setViewMode] = useState('assemble');
   const [slotValues, setSlotValues] = useState(initialData.slotValues || {});
+  const [disabledSlots, setDisabledSlots] = useState(new Set(initialData.disabledSlots || []));
   const [lastSaved, setLastSaved] = useState(null);
 
   const [activeTab, setActiveTab] = useState(null);
@@ -175,10 +176,10 @@ function App() {
   // Note: Loading is handled during state initialization
 
   useEffect(() => {
-    const state = { rawTemplate, snippets, variables, tierStyles, continuousNumbering, slotValues };
+    const state = { rawTemplate, snippets, variables, tierStyles, continuousNumbering, slotValues, disabledSlots: Array.from(disabledSlots) };
     localStorage.setItem('DOCASSEMBLE_AUTOSAVE_V1', JSON.stringify(state));
     setLastSaved(new Date());
-  }, [rawTemplate, snippets, variables, tierStyles, continuousNumbering, slotValues]);
+  }, [rawTemplate, snippets, variables, tierStyles, continuousNumbering, slotValues, disabledSlots]);
 
   const resetProject = () => {
     if (confirm("Are you sure you want to reset the project to defaults? This will clear your autosave.")) {
@@ -188,7 +189,7 @@ function App() {
   };
 
   const exportProject = async () => {
-    const state = { type: 'docassemble-project', rawTemplate, slotValues, variables, tierStyles, continuousNumbering };
+    const state = { type: 'docassemble-project', rawTemplate, slotValues, variables, tierStyles, continuousNumbering, disabledSlots: Array.from(disabledSlots) };
     await triggerSave(JSON.stringify(state, null, 2), `Project_${Date.now()}.json`, 'application/json', 'json');
   };
 
@@ -207,6 +208,9 @@ function App() {
     hiddenDiv.style.position = "absolute"; hiddenDiv.style.left = "-9999px";
     hiddenDiv.style.fontFamily = "'Times New Roman', serif"; hiddenDiv.style.color = "black";
     const html = parsedTemplate.map(item => {
+      // Logic for disabled slots:
+      if (disabledSlots.has(item.id)) return '';
+
       const raw = item.type === 'static' ? item.content : (item.value ? item.value.content : `[Missing: ${item.label}]`);
       const offset = sectionListOffsets[item.id] || 1;
       const resolved = resolveVariables(raw, variables, true);
@@ -243,6 +247,16 @@ function App() {
 
   const handleSlotClick = (category) => { if (viewMode === 'assemble') setActiveTab(category); };
 
+  const toggleSlot = (e, id) => {
+    e.stopPropagation();
+    setDisabledSlots(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
   return (
     <div className="flex flex-col h-screen bg-slate-100 text-slate-900 font-sans overflow-hidden select-none">
       {/* Hidden File Inputs */}
@@ -254,6 +268,7 @@ function App() {
             setRawTemplate(data.rawTemplate); setSlotValues(data.slotValues);
             setVariables(data.variables); setTierStyles(data.tierStyles);
             setContinuousNumbering(data.continuousNumbering);
+            if (data.disabledSlots) setDisabledSlots(new Set(data.disabledSlots));
           }
         };
         reader.readAsText(e.target.files[0]);
@@ -428,20 +443,30 @@ function App() {
 
                       {!item.value ? (
                         viewMode === 'preview' ? <div className="w-full py-4 px-6 border border-amber-200 bg-amber-50 rounded-xl text-amber-700 text-[10px] italic font-black shadow-sm">ACTION REQUIRED: ADD {item.label.toUpperCase()}</div> : (
-                          <div className="flex flex-col items-center gap-2 pointer-events-none text-center py-4">
-                            <Icon name="Plus" size={16} className={isActiveSlot ? 'text-indigo-500' : 'text-slate-300'} />
-                            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Empty Section</span>
-                          </div>
+                          <>
+                            <div className={`flex flex-col items-center gap-2 pointer-events-none text-center py-4 ${disabledSlots.has(item.id) ? 'opacity-40' : ''}`}>
+                              <Icon name="Plus" size={16} className={isActiveSlot ? 'text-indigo-500' : 'text-slate-300'} />
+                              <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">{disabledSlots.has(item.id) ? 'Section Disabled' : 'Empty Section'}</span>
+                            </div>
+                            {viewMode === 'assemble' && (
+                              <button onClick={(e) => toggleSlot(e, item.id)} className="absolute top-2 right-2 p-1 text-slate-300 hover:text-indigo-500 z-10" title={disabledSlots.has(item.id) ? "Enable Section" : "Disable Section"}>
+                                <Icon name={disabledSlots.has(item.id) ? "EyeOff" : "Eye"} size={12} />
+                              </button>
+                            )}
+                          </>
                         )
                       ) : (
                         <div className="w-full relative group p-2">
                           {viewMode === 'assemble' && (
                             <div className="absolute -top-4 right-0 opacity-0 group-hover:opacity-100 flex gap-1 transition-opacity z-10">
+                              <button onClick={(e) => toggleSlot(e, item.id)} className={`p-1 bg-white border border-slate-200 rounded shadow-sm hover:bg-slate-50 ${disabledSlots.has(item.id) ? 'text-slate-400' : 'text-indigo-600'}`} title={disabledSlots.has(item.id) ? "Enable Section" : "Disable Section"}>
+                                <Icon name={disabledSlots.has(item.id) ? "EyeOff" : "Eye"} size={10} />
+                              </button>
                               <button onClick={(e) => openEditInstanceModal(e, item)} className="p-1 bg-white border border-slate-200 rounded text-indigo-600 shadow-sm hover:bg-indigo-50"><Icon name="Pencil" size={10} /></button>
                               <button onClick={(e) => { e.stopPropagation(); const n = { ...slotValues }; delete n[item.id]; setSlotValues(n); }} className="p-1 bg-white border border-slate-200 rounded text-red-500 shadow-sm hover:bg-red-50"><Icon name="Trash2" size={10} /></button>
                             </div>
                           )}
-                          <div className={viewMode === 'assemble' ? 'opacity-90' : ''}>
+                          <div className={`${viewMode === 'assemble' ? 'opacity-90' : ''} ${disabledSlots.has(item.id) ? 'opacity-40 grayscale pointer-events-none select-none' : ''}`}>
                             <MarkdownRenderer content={item.value.content} variables={variables} startOffset={offset} continuous={continuousNumbering} tierStyles={tierStyles} />
                           </div>
                         </div>
