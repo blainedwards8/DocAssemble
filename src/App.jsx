@@ -371,6 +371,39 @@ function App() {
     }
   };
 
+  const saveStructureToCloud = async (title) => {
+    try {
+      // Check if exists? For now, we'll just create or update if we had an ID tracked. 
+      // But for structures loaded from text, we might not have an ID.
+      // Let's do a search by title first? Or just create new for now. 
+      // User asked to name it.
+
+      // Basic duplicate check by title
+      const existing = structures.find(s => s.title.toLowerCase() === title.toLowerCase());
+
+      const payload = {
+        title: title,
+        content: rawTemplate,
+        category: 'Structure',
+        tags: []
+      };
+
+      if (existing) {
+        if (!confirm(`Structure "${title}" already exists. Overwrite?`)) return;
+        await pb.collection('templates').update(existing.id, payload);
+        // Update local state
+        setStructures(prev => prev.map(s => s.id === existing.id ? { ...s, ...payload, content: rawTemplate } : s));
+      } else {
+        const rec = await pb.collection('templates').create(payload);
+        setStructures(prev => [...prev, { id: rec.id, ...payload, content: rawTemplate }]);
+      }
+      alert("Structure saved to Cloud successfully!");
+    } catch (e) {
+      console.error("Failed to save structure", e);
+      alert("Error saving structure: " + e.message);
+    }
+  };
+
   const onDragStart = (e, snippet) => { setDraggedItem(snippet); e.dataTransfer.setData('snippetId', snippet.id); e.dataTransfer.effectAllowed = 'copy'; };
   const onDragOver = (e, item) => { e.preventDefault(); if (!draggedItem) return; setDragOverSlotId(item.id); };
   const onDragLeave = () => setDragOverSlotId(null);
@@ -650,13 +683,16 @@ function App() {
           {viewMode === 'structure' ? (
             <div className="mx-auto w-full max-w-4xl h-full bg-white rounded-xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden animate-in fade-in duration-300">
               <div className="px-6 py-3 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
-                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Template Skeleton (Markdown)</span>
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Structure</span>
                 <div className="flex gap-1">
-                  <button onClick={() => structureInputRef.current.click()} className="flex items-center gap-1.5 px-3 py-1 bg-slate-200 hover:bg-slate-300 rounded text-[9px] font-black uppercase transition-all">
-                    <Icon name="Upload" size={12} /> Load Template
+                  <button onClick={() => structureInputRef.current.click()} className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-200 hover:bg-slate-300 rounded text-[9px] font-black uppercase transition-all">
+                    <Icon name="Upload" size={12} /> Import
                   </button>
-                  <button onClick={exportTemplate} className="flex items-center gap-1.5 px-3 py-1 bg-indigo-600 text-white rounded text-[9px] font-black uppercase transition-all shadow-sm">
-                    <Icon name="Save" size={12} /> Save Template
+                  <button onClick={exportTemplate} className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 rounded text-[9px] font-black uppercase transition-all shadow-sm text-slate-600">
+                    <Icon name="Download" size={12} /> Export
+                  </button>
+                  <button onClick={() => setModalConfig({ isOpen: true, mode: 'save-structure', title: 'Save Structure', content: '', category: 'Structure', tag: '' })} className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white rounded text-[9px] font-black uppercase transition-all shadow-md hover:bg-indigo-700 hover:shadow-lg">
+                    <Icon name="Cloud" size={12} /> Save to Cloud
                   </button>
                 </div>
               </div>
@@ -847,16 +883,40 @@ function App() {
                     <button type="submit" className="w-full py-3 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase">Apply Changes</button>
                   </form>
                 )}
+
+                {/* Save Structure Modal Content */}
+                {modalConfig.mode === 'save-structure' && (
+                  <form onSubmit={(e) => {
+                    e.preventDefault();
+                    saveStructureToCloud(modalConfig.title);
+                    setModalConfig({ ...modalConfig, isOpen: false });
+                  }} className="space-y-6">
+                    <div>
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Structure Name</label>
+                      <input
+                        type="text"
+                        required
+                        autoFocus
+                        value={modalConfig.title}
+                        onChange={(e) => setModalConfig({ ...modalConfig, title: e.target.value })}
+                        className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm font-bold shadow-sm focus:border-indigo-500 outline-none"
+                        placeholder="e.g. Divorce Decree Template"
+                      />
+                      <p className="text-[9px] text-slate-400 mt-2">This will save the current markdown to the cloud library as a 'Structure'.</p>
+                    </div>
+                    <button type="submit" className="w-full py-3 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase hover:bg-indigo-700 transition-colors shadow-lg">Save Structure</button>
+                  </form>
+                )}
               </div>
             </div >
           </div >
         )
         }
-        <footer className="h-10 bg-white border-t border-slate-200 px-6 flex items-center justify-between text-[9px] font-black text-slate-300 uppercase tracking-widest shrink-0">
-          <span>DocAssemble v5.3 (Template Controls Fixed)</span>
-          <span>Offline Mode Ready (PWA)</span>
-        </footer>
-      </main >
+      </main>
+      <footer className="h-10 bg-white border-t border-slate-200 px-6 flex items-center justify-between text-[9px] font-black text-slate-300 uppercase tracking-widest shrink-0 z-50">
+        <span>DocAssemble v5.3 (Template Controls Fixed)</span>
+        <span>Offline Mode Ready (PWA)</span>
+      </footer>
     </div >
   );
 }
