@@ -4,6 +4,9 @@ import Login from './components/Login';
 import Icon from './components/Icon';
 import MarkdownRenderer from './components/MarkdownRenderer';
 import MattersDashboard from './components/MattersDashboard';
+import StructuresDashboard from './components/StructuresDashboard';
+import StructureEditor from './components/StructureEditor';
+import TopNav from './components/TopNav';
 import { resolveVariables, parseMarkdown, triggerSave, getNestedValue, setNestedValue } from './utils';
 import { generateDocx, generatePdf, generateRtf } from './exportUtils';
 import { INITIAL_SNIPPETS, INITIAL_RAW_TEMPLATE, TIER_TYPES } from './constants';
@@ -44,8 +47,10 @@ function App() {
   const [draggedItem, setDraggedItem] = useState(null);
   const [dragOverSlotId, setDragOverSlotId] = useState(null);
   const [activeDocumentId, setActiveDocumentId] = useState(null); // Track current edited document ID
+  const [postLoadAction, setPostLoadAction] = useState(null); // Action to perform after document loads
 
   const [modalConfig, setModalConfig] = useState({ isOpen: false, mode: 'create', targetId: null, title: '', content: '', category: null, tag: '' });
+  const [editingStructure, setEditingStructure] = useState(null); // Structure being edited in StructureEditor
 
   // Structure State
   const [structureTitle, setStructureTitle] = useState('New Structure');
@@ -585,6 +590,7 @@ function App() {
       setStructureTitle(structure.title);
       setStructureId(structure.id); // Set ID for updates
       setActiveDocumentId(null); // New from template = new document (not saved yet)
+      setPostLoadAction(null);
       setViewMode('assemble');
       setSlotValues({});
       setVariables({});
@@ -604,7 +610,30 @@ function App() {
     }
   };
 
-  const loadDocument = (doc) => {
+  const handleNavigate = (view) => {
+    if (view === 'dashboard') {
+      setActiveMatterId(null);
+      setActiveDocumentId(null);
+    }
+    setViewMode(view);
+  };
+
+  const handleLogout = () => {
+    pb.authStore.clear();
+    window.location.reload();
+  };
+
+  const handleEditStructure = (structure) => {
+    setEditingStructure(structure);
+    setViewMode('structure-editor');
+  };
+
+  const handleCreateStructure = () => {
+    setEditingStructure(null);
+    setViewMode('structure-editor');
+  };
+
+  const loadDocument = (doc, action = 'edit') => {
     // Restore state from JSON if available
     try {
       // If description contains JSON, parse it.
@@ -630,6 +659,7 @@ function App() {
       setContinuousNumbering(state.continuousNumbering !== undefined ? state.continuousNumbering : true);
 
       setActiveDocumentId(doc.id);
+      setPostLoadAction(action);
       setViewMode('assemble');
     } catch (err) {
       console.error("Failed to load document state:", err);
@@ -637,428 +667,321 @@ function App() {
     }
   };
 
-  const openDocument = (doc) => {
-    loadDocument(doc);
+  // Effect to handle post-load actions (exports, copy)
+  useEffect(() => {
+    if (postLoadAction && postLoadAction !== 'edit' && rawTemplate) {
+      // Small delay to ensure parsedTemplate and other memos are updated
+      const timer = setTimeout(() => {
+        if (postLoadAction === 'pdf') handleExport('pdf');
+        else if (postLoadAction === 'docx') handleExport('docx');
+        else if (postLoadAction === 'rtf') handleExport('rtf');
+        else if (postLoadAction === 'copy') copyToClipboard();
+        setPostLoadAction(null);
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [postLoadAction, rawTemplate]);
+
+  const openDocument = (doc, action) => {
+    loadDocument(doc, action);
   };
 
-  if (!pb.authStore.isValid) {
+  if (!pb.authStore.isValid || !user) {
     return <Login pb={pb} onLogin={() => { setViewMode('dashboard'); window.location.reload(); }} />;
   }
 
-  // Dashboard View
-  if (viewMode === 'dashboard') {
-    return (
-      <div className="min-h-screen flex flex-col font-sans text-slate-600 bg-slate-50">
-        <MattersDashboard
-          pb={pb}
-          matters={matters}
-          activeMatterId={activeMatterId}
-          onSelectMatter={setActiveMatterId}
-          onCreateMatter={createMatter}
-          onOpenDocument={openDocument}
-          onNewDocument={() => setModalConfig({ isOpen: true, mode: 'select-template' })}
-        />
-        {/* Template Selection Modal */}
-        {modalConfig.isOpen && modalConfig.mode === 'select-template' && (
-          <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in duration-200">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl h-[80vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
-              <header className="px-8 py-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                <div>
-                  <h2 className="text-xl font-black text-slate-800 tracking-tight">Select a Template</h2>
-                  <p className="text-sm font-medium text-slate-400">Choose a starting point for your document</p>
-                </div>
-                <button onClick={() => setModalConfig({ isOpen: false })} className="p-2 hover:bg-slate-100 rounded-full transition-colors"><Icon name="X" /></button>
-              </header>
-              <div className="flex-1 overflow-y-auto p-8 custom-scrollbar bg-slate-50/30">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {structures.map(t => (
-                    <div key={t.id} onClick={() => {
-                      loadStructure(t);
-                      setModalConfig({ isOpen: false });
-                    }} className="group bg-white border border-slate-200 hover:border-indigo-400 hover:shadow-xl hover:-translate-y-1 p-6 rounded-2xl cursor-pointer transition-all flex flex-col justify-between h-48 relative overflow-hidden">
-                      <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-slate-50 to-indigo-50/50 rounded-bl-full -mr-6 -mt-6 transition-transform group-hover:scale-150 duration-500"></div>
-                      <div className="relative z-10">
-                        <span className="w-10 h-10 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center mb-4"><Icon name="FileText" size={20} /></span>
-                        <h3 className="font-bold text-slate-800 mb-1 leading-snug group-hover:text-indigo-700 transition-colors">{t.title}</h3>
-                      </div>
-                      <div className="mt-auto relative z-10 pt-4 border-t border-slate-50">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest group-hover:text-indigo-500 transition-colors">Select Template →</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  }
+  const activeMatter = matters.find(m => m.id === activeMatterId);
 
   return (
-    <div className="flex flex-col h-screen bg-slate-100 text-slate-900 font-sans overflow-hidden select-none">
-      {/* Hidden File Inputs */}
-      <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={(e) => {
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-          const data = JSON.parse(ev.target.result);
-          if (data.type === 'docassemble-project') {
-            setRawTemplate(data.rawTemplate); setSlotValues(data.slotValues);
-            setVariables(data.variables); setTierStyles(data.tierStyles);
-            setContinuousNumbering(data.continuousNumbering);
-            if (data.disabledSlots) setDisabledSlots(new Set(data.disabledSlots));
-          }
-        };
-        reader.readAsText(e.target.files[0]);
-      }} />
-      <input type="file" ref={libraryInputRef} className="hidden" accept=".json" onChange={(e) => {
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-          const data = JSON.parse(ev.target.result);
-          if (data.type === 'docassemble-library') setSnippets(data.snippets);
-        };
-        reader.readAsText(e.target.files[0]);
-      }} />
-      <input type="file" ref={structureInputRef} className="hidden" accept=".md,.txt" onChange={(e) => {
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-          const text = ev.target.result;
-          if (text.startsWith('---')) {
-            const parts = text.split('---');
-            const meta = parts[1];
-            const body = parts.slice(2).join('---').trim();
-            const t1 = meta.match(/tier1:\s*(.*)/)?.[1];
-            const cont = meta.match(/continuous:\s*(.*)/)?.[1];
-            if (t1) setTierStyles([t1, tierStyles[1], tierStyles[2]]);
-            if (cont) setContinuousNumbering(cont.trim() === 'true');
-            setRawTemplate(body);
-          } else setRawTemplate(text.trim());
-        };
-        reader.readAsText(e.target.files[0]);
-      }} />
+    <div className="flex flex-col h-screen bg-slate-50 text-slate-900 font-sans overflow-hidden select-none">
+      <TopNav
+        user={user}
+        viewMode={viewMode}
+        onNavigate={handleNavigate}
+        onLogout={handleLogout}
+        activeMatter={activeMatter}
+      />
 
-      <header className="h-14 bg-white border-b border-slate-200 flex items-center justify-between px-4 shrink-0 z-50 shadow-sm relative">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 mr-4 cursor-pointer" onClick={() => setViewMode('dashboard')}>
-            <div className="bg-indigo-600 text-white p-1.5 rounded-lg shadow-sm shadow-indigo-200">
-              <Icon name="FileText" size={18} />
-            </div>
-            <span className="text-sm font-black tracking-tight text-slate-800 hidden sm:inline">DocAssemble</span>
-          </div>
+      <main className="flex-1 flex flex-col overflow-hidden">
+        {/* Hidden File Inputs */}
+        <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={(e) => {
+          const reader = new FileReader();
+          reader.onload = (ev) => {
+            const data = JSON.parse(ev.target.result);
+            if (data.type === 'docassemble-project') {
+              setRawTemplate(data.rawTemplate); setSlotValues(data.slotValues);
+              setVariables(data.variables); setTierStyles(data.tierStyles);
+              setContinuousNumbering(data.continuousNumbering);
+              if (data.disabledSlots) setDisabledSlots(new Set(data.disabledSlots));
+            }
+          };
+          reader.readAsText(e.target.files[0]);
+        }} />
+        <input type="file" ref={libraryInputRef} className="hidden" accept=".json" onChange={(e) => {
+          const reader = new FileReader();
+          reader.onload = (ev) => {
+            const data = JSON.parse(ev.target.result);
+            if (data.type === 'docassemble-library') setSnippets(data.snippets);
+          };
+          reader.readAsText(e.target.files[0]);
+        }} />
+        <input type="file" ref={structureInputRef} className="hidden" accept=".md,.txt" onChange={(e) => {
+          const reader = new FileReader();
+          reader.onload = (ev) => {
+            const text = ev.target.result;
+            if (text.startsWith('---')) {
+              const parts = text.split('---');
+              const meta = parts[1];
+              const body = parts.slice(2).join('---').trim();
+              const t1 = meta.match(/tier1:\s*(.*)/)?.[1];
+              const cont = meta.match(/continuous:\s*(.*)/)?.[1];
+              if (t1) setTierStyles([t1, tierStyles[1], tierStyles[2]]);
+              if (cont) setContinuousNumbering(cont.trim() === 'true');
+              setRawTemplate(body);
+            } else setRawTemplate(text.trim());
+          };
+          reader.readAsText(e.target.files[0]);
+        }} />
 
-          <button
-            onClick={() => setViewMode('dashboard')}
-            className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-bold transition-all"
-          >
-            <Icon name="LayoutGrid" size={14} />
-            <span className="hidden sm:inline">Dashboard</span>
-          </button>
+        {/* Dashboard Views */}
+        {viewMode === 'dashboard' && (
+          <MattersDashboard
+            pb={pb}
+            matters={matters}
+            activeMatterId={activeMatterId}
+            onSelectMatter={setActiveMatterId}
+            onCreateMatter={createMatter}
+            onOpenDocument={openDocument}
+            onNewDocument={() => setModalConfig({ isOpen: true, mode: 'select-template' })}
+          />
+        )}
 
-          {activeMatterId && (
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-lg border border-indigo-100">
-              <Icon name="Briefcase" size={14} />
-              <span className="text-xs font-bold max-w-[150px] truncate">
-                {matters.find(m => m.id === activeMatterId)?.title}
-              </span>
-            </div>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="mr-2 flex items-center gap-2">
-            <span className="text-[10px] font-bold text-slate-400">{user.email}</span>
-            <button onClick={() => pb.authStore.clear()} className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-red-500" title="Logout">
-              <Icon name="LogOut" size={14} />
-            </button>
-          </div>
-          {lastSaved && (
-            <span className="text-[10px] uppercase font-bold text-slate-400 mr-2 animate-pulse transition-opacity duration-1000">
-              Sorted & Saved {lastSaved.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-            </span>
-          )}
-          <div className="flex items-center bg-slate-50 p-1 rounded-lg border border-slate-200">
-            <button onClick={() => fileInputRef.current.click()} className="p-1.5 hover:bg-white rounded transition-all text-slate-400 hover:text-indigo-600" title="Open Project"><Icon name="Upload" size={16} /></button>
-            <button onClick={exportProject} className="p-1.5 hover:bg-white rounded transition-all text-slate-400 hover:text-indigo-600" title="Save Project"><Icon name="Save" size={16} /></button>
-            <button onClick={resetProject} className="p-1.5 hover:bg-white rounded transition-all text-slate-400 hover:text-red-500" title="Reset Project"><Icon name="RotateCw" size={16} /></button>
-          </div>
-          <div className="flex bg-slate-50 p-1 rounded-lg border border-slate-200">
-            {['assemble', 'structure', 'preview'].map(m => (
-              <button key={m} onClick={() => setViewMode(m)} className={`px-4 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === m ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>{m}</button>
-            ))}
-          </div>
-          <button onClick={openVariableModal} className="px-4 py-2 bg-white border border-slate-200 rounded-md text-[10px] font-black uppercase text-slate-600 shadow-sm flex items-center gap-2">
-            <Icon name="Database" size={14} className="text-indigo-500" /> Variables
-          </button>
+        {viewMode === 'structures-dashboard' && (
+          <StructuresDashboard
+            pb={pb}
+            structures={structures}
+            onEditStructure={handleEditStructure}
+            onCreateStructure={handleCreateStructure}
+            onBack={() => setViewMode('dashboard')}
+          />
+        )}
 
-          {/* Export Dropdown */}
-          <div className="relative group inline-block">
-            <button className="px-5 py-2 bg-indigo-600 text-white rounded-md text-[10px] font-black uppercase shadow-lg active:scale-95 transition-all flex items-center gap-2 group-hover:rounded-b-none">
-              Export / Copy <Icon name="ChevronDown" size={12} />
-            </button>
-            {/* Invisible bridge to prevent closing on gap */}
-            <div className="absolute top-full left-0 w-full h-2 bg-transparent"></div>
-            <div className="absolute top-[calc(100%+4px)] right-0 w-48 bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden hidden group-hover:block z-50 animate-in fade-in slide-in-from-top-2">
-              <button onClick={copyToClipboard} className="w-full text-left px-4 py-3 hover:bg-slate-50 text-xs font-bold text-slate-700 flex items-center gap-2">
-                <Icon name="Copy" size={14} className="text-slate-400" /> Copy Text
-              </button>
-              <div className="h-px bg-slate-100 my-0"></div>
-              <button onClick={() => handleExport('docx')} className="w-full text-left px-4 py-3 hover:bg-slate-50 text-xs font-bold text-slate-700 flex items-center gap-2">
-                <Icon name="FileText" size={14} className="text-blue-500" /> DOCX (Word)
-              </button>
-              <button onClick={() => handleExport('pdf')} className="w-full text-left px-4 py-3 hover:bg-slate-50 text-xs font-bold text-slate-700 flex items-center gap-2">
-                <Icon name="File" size={14} className="text-red-500" /> PDF Document
-              </button>
-              <button onClick={() => handleExport('rtf')} className="w-full text-left px-4 py-3 hover:bg-slate-50 text-xs font-bold text-slate-700 flex items-center gap-2">
-                <Icon name="FileType" size={14} className="text-slate-500" /> RTF (Rich Text)
-              </button>
-              <div className="h-px bg-slate-100 my-0"></div>
-              <button onClick={saveDocumentToCloud} className={`w-full text-left px-4 py-3 hover:bg-slate-50 text-xs font-bold flex items-center gap-2 ${activeMatterId ? 'text-indigo-600' : 'text-slate-300'}`}>
-                <Icon name="Cloud" size={14} /> Save to Matter
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
+        {/* Editor Views */}
+        {viewMode === 'structure-editor' && (
+          <StructureEditor
+            pb={pb}
+            initialStructure={editingStructure}
+            onBack={() => setViewMode('structures-dashboard')}
+            onSave={(newRec) => {
+              setStructures(prev => {
+                const exists = prev.find(p => p.id === newRec.id);
+                if (exists) return prev.map(p => p.id === newRec.id ? newRec : p);
+                return [newRec, ...prev];
+              });
+              setEditingStructure(newRec);
+            }}
+          />
+        )}
 
-      <main className="flex flex-1 overflow-hidden">
-
-        {viewMode === 'assemble' && (
-          <aside className="w-80 border-r border-slate-200 bg-white flex flex-col shrink-0 shadow-sm overflow-hidden z-10">
-            {/* 1. Status Section */}
-            <div className="p-4 border-b border-slate-100 bg-slate-50/50">
-              <h2 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Document Status</h2>
-              {(() => {
-                const totalSlots = parsedTemplate.filter(i => i.type === 'slot').length;
-                const filledSlots = parsedTemplate.filter(i => i.type === 'slot' && i.value).length;
-                const isAllFilled = totalSlots > 0 && totalSlots === filledSlots;
-
-                return (
-                  <div className={`px-3 py-2.5 rounded-lg border flex items-center justify-between shadow-sm ${isAllFilled ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-white border-slate-200 text-slate-600'}`}>
-                    <div className="flex items-center gap-2">
-                      <Icon name={isAllFilled ? "CheckCircle2" : "PieChart"} size={16} className={isAllFilled ? "text-emerald-500" : "text-slate-400"} />
-                      <span className="text-[11px] font-black uppercase tracking-wide">{filledSlots}/{totalSlots} Completed</span>
-                    </div>
-                    {isAllFilled && <span className="text-[9px] font-black uppercase bg-emerald-100 px-1.5 py-0.5 rounded text-emerald-700">Ready</span>}
-                  </div>
-                );
-              })()}
-            </div>
-
-            {/* 2. Provision Library (Formerly Template Library) */}
-            <div className="flex-1 overflow-y-auto p-4 custom-scrollbar flex flex-col">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Values & Provisions</h2>
-                <div className="flex gap-1">
-                  <button onClick={() => libraryInputRef.current.click()} className="p-1 text-slate-400 hover:text-indigo-600" title="Import Local JSON"><Icon name="Upload" size={14} /></button>
-                  <button onClick={saveLibraryToCloud} className="p-1 text-slate-400 hover:text-indigo-600" title="Force Sync Provisions to Cloud (Backup)"><Icon name="RefreshCw" size={14} /></button>
+        {(viewMode === 'assemble' || viewMode === 'preview') && (
+          <div className="flex-1 flex flex-col overflow-hidden">
+            {/* Secondary Toolbar for Assembly */}
+            <div className="h-14 bg-white border-b border-slate-200 flex items-center justify-between px-6 shrink-0 z-40 relative">
+              <div className="flex items-center gap-4">
+                <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200/50">
+                  {['assemble', 'preview'].map(m => (
+                    <button key={m} onClick={() => setViewMode(m)} className={`px-4 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === m ? 'bg-white text-indigo-600 shadow-sm border border-slate-100' : 'text-slate-400 hover:text-slate-600'}`}>{m}</button>
+                  ))}
                 </div>
+                <button onClick={openVariableModal} className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-[10px] font-black uppercase text-slate-600 shadow-sm flex items-center gap-2 hover:bg-slate-50 transition-all">
+                  <Icon name="Database" size={14} className="text-indigo-500" /> Variables
+                </button>
               </div>
 
-              {/* Search Input */}
-              <div className="relative mb-3 shrink-0">
-                <input
-                  type="text"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Search provisions..."
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold outline-none focus:border-indigo-400 pl-8"
-                />
-                <div className="absolute left-2.5 top-2.5 text-slate-400"><Icon name="Search" size={12} /></div>
-              </div>
-
-              <div className="space-y-1">
-                {activeCategories.length === 0 && filteredCategories.length === 0 && (
-                  <div className="text-center py-8 border-2 border-dashed border-slate-100 rounded-lg">
-                    <p className="text-slate-300 text-[10px] font-bold uppercase">No provisions found</p>
-                  </div>
+              <div className="flex items-center gap-3">
+                {lastSaved && (
+                  <span className="text-[10px] uppercase font-bold text-slate-300 mr-4">
+                    Last Saved {lastSaved.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </span>
                 )}
 
-                {filteredCategories.map(cat => {
-                  const relevantSlots = parsedTemplate.filter(item => item.type === 'slot' && item.category === cat);
-                  const isComplete = relevantSlots.length > 0 && relevantSlots.every(slot => slot.value !== null);
-                  const isActiveCategory = activeTab === cat;
-                  let btnClass = `w-full text-left px-3 py-2.5 rounded-lg text-[11px] font-bold transition-all border flex items-center justify-between `;
-                  // Style logic
-                  if (isComplete) btnClass += isActiveCategory ? "bg-emerald-600 border-emerald-600 text-white shadow-md ring-2 ring-emerald-100" : "bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100";
-                  else btnClass += isActiveCategory ? "bg-indigo-600 border-indigo-600 text-white shadow-md" : "bg-slate-50 border-slate-100 text-slate-500 hover:bg-slate-100";
+                <div className="flex items-center border-r border-slate-100 pr-4 mr-1 gap-1">
+                  <button onClick={() => fileInputRef.current.click()} className="p-2 hover:bg-slate-100 rounded-lg transition-all text-slate-400 hover:text-indigo-600" title="Open Project"><Icon name="Upload" size={16} /></button>
+                  <button onClick={exportProject} className="p-2 hover:bg-slate-100 rounded-lg transition-all text-slate-400 hover:text-indigo-600" title="Save Project"><Icon name="Save" size={16} /></button>
+                  <button onClick={resetProject} className="p-2 hover:bg-slate-100 rounded-lg transition-all text-slate-400 hover:text-red-500" title="Reset Project"><Icon name="RotateCw" size={16} /></button>
+                </div>
 
-                  return (
-                    <div key={cat} className="space-y-1">
-                      <button onClick={() => setActiveTab(isActiveCategory ? null : cat)} className={btnClass}>
-                        <span className="truncate pr-2">{cat.toUpperCase()}</span>
-                        {isComplete && <Icon name="CheckCircle2" size={14} className={isActiveCategory ? "text-white" : "text-emerald-500"} />}
+                {/* Export Dropdown */}
+                <div className="relative group inline-block">
+                  <button className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase shadow-lg shadow-indigo-100 active:scale-95 transition-all flex items-center gap-2">
+                    Export Document <Icon name="ChevronDown" size={12} />
+                  </button>
+                  <div className="absolute top-[full] right-0 pt-2 hidden group-hover:block z-50">
+                    <div className="w-48 bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in slide-in-from-top-2">
+                      <button onClick={copyToClipboard} className="w-full text-left px-4 py-3 hover:bg-slate-50 text-xs font-bold text-slate-700 flex items-center gap-2">
+                        <Icon name="Copy" size={14} className="text-slate-400" /> Copy Text
                       </button>
-                      {isActiveCategory && (
-                        <div className="pl-2 pr-1 py-2 space-y-2 border-l-2 border-slate-100 ml-2 animate-in slide-in-from-left-1 duration-200">
-                          {filteredSnippets.filter(s => s.category === cat).map(snippet => (
-                            <div key={snippet.id} draggable onDragStart={(e) => onDragStart(e, snippet)} onDragEnd={() => setDraggedItem(null)} className="bg-white border border-slate-200 rounded-lg p-3 cursor-grab hover:border-indigo-400 hover:shadow-md transition-all shadow-sm flex flex-col gap-1 group">
-                              <div className="flex items-center justify-between">
-                                <span className="text-[11px] font-bold text-slate-700">{snippet.title}</span>
-                                <button onClick={(e) => openEditLibraryModal(e, snippet)} className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-indigo-600 transition-opacity"><Icon name="Pencil" size={12} /></button>
-                              </div>
-                              {snippet.tag && (
-                                <span className="text-[9px] font-black uppercase text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded w-fit">{snippet.tag}</span>
-                              )}
-                            </div>
-                          ))}
-                          <button onClick={() => setModalConfig({ isOpen: true, mode: 'create', targetId: null, title: '', content: '', category: cat, tag: '' })} className="w-full py-2 border-2 border-dashed border-slate-100 rounded-lg text-slate-300 hover:text-indigo-400 hover:border-indigo-100 transition-all flex items-center justify-center gap-1">
-                            <Icon name="PlusCircle" size={14} />
-                            <span className="text-[9px] font-black uppercase">Add New Provision</span>
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </aside>
-        )}
-
-        <section className="flex-1 overflow-y-auto p-8 bg-slate-100 scroll-smooth">
-          {viewMode === 'structure' ? (
-            <div className="mx-auto w-full max-w-4xl h-full bg-white rounded-xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden animate-in fade-in duration-300">
-              <div className="px-6 py-3 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
-                <input
-                  type="text"
-                  value={structureTitle}
-                  onChange={(e) => setStructureTitle(e.target.value)}
-                  className="bg-transparent border-none text-[10px] font-black uppercase tracking-widest text-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500 rounded px-1 -ml-1 w-64"
-                  placeholder="STRUCTURE TITLE..."
-                />
-                <div className="flex gap-1 items-center">
-                  {isSaving ? (
-                    <span className="text-[9px] text-indigo-500 font-bold animate-pulse mr-2">SAVING...</span>
-                  ) : lastSaved ? (
-                    <span className="text-[9px] text-slate-300 font-bold mr-2">SAVED {lastSaved.toLocaleTimeString()}</span>
-                  ) : null}
-                  <button onClick={() => structureInputRef.current.click()} className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-200 hover:bg-slate-300 rounded text-[9px] font-black uppercase transition-all">
-                    <Icon name="Upload" size={12} /> Import
-                  </button>
-                  <button onClick={exportTemplate} className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 rounded text-[9px] font-black uppercase transition-all shadow-sm text-slate-600">
-                    <Icon name="Download" size={12} /> Export
-                  </button>
-                </div>
-              </div>
-              <textarea value={rawTemplate} onChange={(e) => setRawTemplate(e.target.value)} className="flex-1 w-full p-10 font-mono text-sm leading-relaxed focus:outline-none resize-none bg-white text-slate-700" placeholder="# Header... [[Section|Category]]" />
-            </div>
-          ) : (
-            <div className={`mx-auto bg-white shadow-2xl min-h-[1056px] w-full max-w-[816px] p-10 lg:p-24 border border-slate-200 ${viewMode === 'preview' ? 'rounded-none shadow-none border-transparent' : 'rounded-lg'}`}>
-              <div className="space-y-2">
-                {parsedTemplate.map((item) => {
-                  const offset = sectionListOffsets[item.id] || 1;
-                  const isBeingHovered = dragOverSlotId === item.id;
-                  const isValidDrop = draggedItem && draggedItem.category === item.category && (draggedItem.tag || null) === (item.tag || null);
-                  const isActiveSlot = activeTab === item.category && viewMode === 'assemble';
-
-                  if (item.type === 'static') return <MarkdownRenderer key={item.id} content={item.content} variables={variables} startOffset={offset} continuous={continuousNumbering} tierStyles={tierStyles} className="mb-6" onVariableClick={handleVariableClick} />;
-
-                  return (
-                    <div
-                      key={item.id}
-                      onClick={() => handleSlotClick(item.category)}
-                      onDragOver={(e) => onDragOver(e, item)}
-                      onDragLeave={onDragLeave}
-                      onDrop={(e) => onDrop(e, item)}
-                      className={`relative min-h-[40px] rounded-xl transition-all border-2 flex flex-col items-center justify-center 
-                                                ${viewMode === 'preview' ? 'border-transparent' : ''} 
-                                                ${item.value && viewMode !== 'preview' ? 'border-transparent bg-indigo-50/40 border-indigo-200 my-4 shadow-sm ring-1 ring-indigo-100' : 'border-dashed border-slate-200 bg-slate-50/50 my-2'}
-                                                ${isBeingHovered && isValidDrop ? 'bg-green-50 border-green-400 border-solid scale-[1.02] shadow-lg ring-4 ring-green-100' : ''}
-                                                ${isBeingHovered && !isValidDrop ? 'bg-red-50 border-red-400 border-solid' : ''}
-                                                ${viewMode === 'assemble' ? 'cursor-pointer hover:shadow-sm' : ''}
-                                            `}
-                    >
-                      {viewMode === 'assemble' && (
-                        <div className="absolute -top-3 left-4 flex items-center gap-2 pointer-events-none z-10">
-                          <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded shadow-sm border ${isActiveSlot ? 'bg-indigo-600 text-white border-indigo-700' : 'bg-white text-slate-400 border-slate-200'
-                            }`}>
-                            {item.label} • {item.category} {item.tag ? `• ${item.tag.toUpperCase()}` : ''}
-                          </span>
-                        </div>
-                      )}
-
-                      {!item.value ? (
-                        viewMode === 'preview' ? <div className="w-full py-4 px-6 border border-amber-200 bg-amber-50 rounded-xl text-amber-700 text-[10px] italic font-black shadow-sm">ACTION REQUIRED: ADD {item.label.toUpperCase()}</div> : (
-                          <>
-                            <div className={`flex flex-col items-center gap-2 pointer-events-none text-center py-4 ${disabledSlots.has(item.id) ? 'opacity-40' : ''}`}>
-                              <Icon name="Plus" size={16} className={isActiveSlot ? 'text-indigo-500' : 'text-slate-300'} />
-                              <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">{disabledSlots.has(item.id) ? 'Section Disabled' : 'Empty Section'}</span>
-                            </div>
-                            {viewMode === 'assemble' && (
-                              <button onClick={(e) => toggleSlot(e, item.id)} className="absolute top-2 right-2 p-1 text-slate-300 hover:text-indigo-500 z-10" title={disabledSlots.has(item.id) ? "Enable Section" : "Disable Section"}>
-                                <Icon name={disabledSlots.has(item.id) ? "EyeOff" : "Eye"} size={12} />
-                              </button>
-                            )}
-                          </>
-                        )
-                      ) : (
-                        <div className="w-full relative group p-2">
-                          {viewMode === 'assemble' && (
-                            <div className="absolute -top-4 right-0 opacity-0 group-hover:opacity-100 flex gap-1 transition-opacity z-10">
-                              <button onClick={(e) => toggleSlot(e, item.id)} className={`p-1 bg-white border border-slate-200 rounded shadow-sm hover:bg-slate-50 ${disabledSlots.has(item.id) ? 'text-slate-400' : 'text-indigo-600'}`} title={disabledSlots.has(item.id) ? "Enable Section" : "Disable Section"}>
-                                <Icon name={disabledSlots.has(item.id) ? "EyeOff" : "Eye"} size={10} />
-                              </button>
-                              <button onClick={(e) => openEditInstanceModal(e, item)} className="p-1 bg-white border border-slate-200 rounded text-indigo-600 shadow-sm hover:bg-indigo-50"><Icon name="Pencil" size={10} /></button>
-                              <button onClick={(e) => { e.stopPropagation(); const n = { ...slotValues }; delete n[item.id]; setSlotValues(n); }} className="p-1 bg-white border border-slate-200 rounded text-red-500 shadow-sm hover:bg-red-50"><Icon name="Trash2" size={10} /></button>
-                            </div>
-                          )}
-                          <div className={`${viewMode === 'assemble' ? 'opacity-90' : ''} ${disabledSlots.has(item.id) ? 'opacity-40 grayscale pointer-events-none select-none' : ''}`}>
-                            <MarkdownRenderer content={item.value.content} variables={variables} startOffset={offset} continuous={continuousNumbering} tierStyles={tierStyles} onVariableClick={handleVariableClick} />
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </section>
-
-        {/* Right Sidebar: Document Structures (Templates) */}
-        {viewMode !== 'preview' && (
-          <aside className="w-64 border-l border-slate-200 bg-white flex flex-col shrink-0 shadow-sm z-10">
-            <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
-              <h2 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Document Structures</h2>
-              <button onClick={() => structureInputRef.current.click()} className="p-1 text-slate-400 hover:text-indigo-600" title="Load Markdown File"><Icon name="Upload" size={14} /></button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-4 custom-scrollbar space-y-3">
-              {/* List of Templates (Structures) */}
-              {structures.length === 0 ? (
-                <div className="text-center py-8 border-2 border-dashed border-slate-100 rounded-lg">
-                  <p className="text-slate-300 text-[10px] font-bold uppercase">No structures found</p>
-                  <p className="text-[9px] text-slate-300 mt-1">Check 'templates' collection</p>
-                </div>
-              ) : (
-                structures.map(t => (
-                  <div key={t.id} className="group relative bg-white border border-slate-200 rounded-lg p-3 hover:border-indigo-400 hover:shadow-md transition-all cursor-pointer" onClick={() => loadStructure(t)}>
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <h3 className="text-[11px] font-bold text-slate-700 leading-tight mb-1">{t.title}</h3>
-                        <p className="text-[9px] text-slate-400 font-medium uppercase tracking-wider">Structure</p>
-                      </div>
-                      <Icon name="FileText" size={14} className="text-slate-300 group-hover:text-indigo-500" />
+                      <div className="h-px bg-slate-100 my-0"></div>
+                      <button onClick={() => handleExport('docx')} className="w-full text-left px-4 py-3 hover:bg-slate-50 text-xs font-bold text-slate-700 flex items-center gap-2">
+                        <Icon name="FileText" size={14} className="text-blue-500" /> DOCX (Word)
+                      </button>
+                      <button onClick={() => handleExport('pdf')} className="w-full text-left px-4 py-3 hover:bg-slate-50 text-xs font-bold text-slate-700 flex items-center gap-2">
+                        <Icon name="File" size={14} className="text-red-500" /> PDF Document
+                      </button>
+                      <button onClick={() => handleExport('rtf')} className="w-full text-left px-4 py-3 hover:bg-slate-50 text-xs font-bold text-slate-700 flex items-center gap-2">
+                        <Icon name="FileType" size={14} className="text-slate-500" /> RTF (Rich Text)
+                      </button>
+                      <div className="h-px bg-slate-100 my-0"></div>
+                      <button onClick={saveDocumentToCloud} className={`w-full text-left px-4 py-3 hover:bg-slate-50 text-xs font-bold flex items-center gap-2 ${activeMatterId ? 'text-indigo-600' : 'text-slate-300'}`}>
+                        <Icon name="Cloud" size={14} /> Save to Matter
+                      </button>
                     </div>
                   </div>
-                ))
-              )}
+                </div>
+              </div>
             </div>
-          </aside>
+
+            <div className="flex-1 flex overflow-hidden">
+              {viewMode === 'assemble' && (
+                <aside className="w-80 border-r border-slate-200 bg-white flex flex-col shrink-0 shadow-sm overflow-hidden z-10 animate-in slide-in-from-left duration-300">
+                  <div className="p-4 border-b border-slate-100 bg-slate-50/50">
+                    <h2 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Document Status</h2>
+                    {(() => {
+                      const totalSlots = parsedTemplate.filter(i => i.type === 'slot').length;
+                      const filledSlots = parsedTemplate.filter(i => i.type === 'slot' && i.value).length;
+                      const isAllFilled = totalSlots > 0 && totalSlots === filledSlots;
+                      return (
+                        <div className={`px-3 py-2.5 rounded-lg border flex items-center justify-between shadow-sm ${isAllFilled ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-white border-slate-200 text-slate-600'}`}>
+                          <div className="flex items-center gap-2">
+                            <Icon name={isAllFilled ? "CheckCircle2" : "PieChart"} size={16} className={isAllFilled ? "text-emerald-500" : "text-slate-400"} />
+                            <span className="text-[11px] font-black uppercase tracking-wide">{filledSlots}/{totalSlots} Completed</span>
+                          </div>
+                          {isAllFilled && <span className="text-[9px] font-black uppercase bg-emerald-100 px-1.5 py-0.5 rounded text-emerald-700">Ready</span>}
+                        </div>
+                      );
+                    })()}
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto p-4 custom-scrollbar flex flex-col">
+                    <div className="flex items-center justify-between mb-4">
+                      <h2 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Values & Provisions</h2>
+                      <div className="flex gap-1">
+                        <button onClick={() => libraryInputRef.current.click()} className="p-1 text-slate-400 hover:text-indigo-600" title="Import Local JSON"><Icon name="Upload" size={14} /></button>
+                        <button onClick={saveLibraryToCloud} className="p-1 text-slate-400 hover:text-indigo-600" title="Force Sync Provisions to Cloud (Backup)"><Icon name="RefreshCw" size={14} /></button>
+                      </div>
+                    </div>
+                    <div className="relative mb-3 shrink-0">
+                      <input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Search provisions..." className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold outline-none focus:border-indigo-400 pl-8" />
+                      <div className="absolute left-2.5 top-2.5 text-slate-400"><Icon name="Search" size={12} /></div>
+                    </div>
+                    <div className="space-y-1">
+                      {filteredCategories.map(cat => {
+                        const relevantSlots = parsedTemplate.filter(item => item.type === 'slot' && item.category === cat);
+                        const isComplete = relevantSlots.length > 0 && relevantSlots.every(slot => slot.value !== null);
+                        const isActiveCategory = activeTab === cat;
+                        return (
+                          <div key={cat} className="space-y-1">
+                            <button onClick={() => setActiveTab(isActiveCategory ? null : cat)} className={`w-full text-left px-3 py-2.5 rounded-lg text-[11px] font-bold border flex items-center justify-between ${isComplete ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : isActiveCategory ? 'bg-indigo-600 text-white' : 'bg-slate-50 border-slate-100 text-slate-500'}`}>
+                              <span>{cat.toUpperCase()}</span>
+                              {isComplete && <Icon name="CheckCircle2" size={14} />}
+                            </button>
+                            {isActiveCategory && (
+                              <div className="pl-2 space-y-2 border-l-2 border-indigo-100 ml-2 py-2">
+                                {filteredSnippets.filter(s => s.category === cat).map(snippet => (
+                                  <div key={snippet.id} draggable onDragStart={(e) => onDragStart(e, snippet)} className="bg-white border border-slate-200 rounded-lg p-3 hover:border-indigo-400 hover:shadow-md cursor-grab active:cursor-grabbing transition-all text-[11px] font-bold text-slate-700">
+                                    {snippet.title}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </aside>
+              )}
+
+              <section className="flex-1 overflow-y-auto p-12 bg-slate-50/50 scroll-smooth">
+                <div className={`mx-auto bg-white shadow-2xl min-h-[1056px] w-full max-w-[816px] p-16 lg:p-24 border border-slate-200 transition-all duration-500 ${viewMode === 'preview' ? 'rounded-none shadow-xl border-slate-100' : 'rounded-2xl'}`}>
+                  <div className="space-y-2">
+                    {parsedTemplate.map((item) => {
+                      const offset = sectionListOffsets[item.id] || 1;
+                      if (item.type === 'static') return <MarkdownRenderer key={item.id} content={item.content} variables={variables} startOffset={offset} continuous={continuousNumbering} tierStyles={tierStyles} className="mb-6" onVariableClick={handleVariableClick} />;
+
+                      const isActiveSlot = activeTab === item.category && viewMode === 'assemble';
+                      return (
+                        <div
+                          key={item.id}
+                          onClick={() => handleSlotClick(item.category)}
+                          onDragOver={(e) => onDragOver(e, item)}
+                          onDrop={(e) => onDrop(e, item)}
+                          className={`relative min-h-[40px] rounded-2xl transition-all border-2 flex flex-col items-center justify-center mb-4
+                                  ${item.value ? 'border-transparent bg-indigo-50/30 border-indigo-100 shadow-sm' : 'border-dashed border-slate-200 bg-slate-50/50'}
+                                  ${isActiveSlot ? 'ring-2 ring-indigo-500/20 border-indigo-200' : ''}
+                              `}
+                        >
+                          {!item.value ? (
+                            <div className="py-6 text-center text-slate-300">
+                              <Icon name="PlusCircle" size={20} className="mx-auto mb-2 opacity-30" />
+                              <span className="text-[10px] font-black uppercase tracking-widest">{item.label}</span>
+                            </div>
+                          ) : (
+                            <div className="w-full p-2 group relative">
+                              {viewMode === 'assemble' && (
+                                <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <button onClick={(e) => { e.stopPropagation(); const n = { ...slotValues }; delete n[item.id]; setSlotValues(n); }} className="p-1 px-2 bg-white border border-slate-200 rounded-lg text-red-500 hover:bg-red-50 shadow-sm text-[9px] font-black uppercase">Clear</button>
+                                </div>
+                              )}
+                              <MarkdownRenderer content={item.value.content} variables={variables} startOffset={offset} continuous={continuousNumbering} tierStyles={tierStyles} onVariableClick={handleVariableClick} />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </section>
+            </div>
+          </div>
         )}
 
-        {modalConfig.isOpen && (
-          <div className="fixed inset-0 bg-slate-900 bg-opacity-50 flex items-center justify-center z-50 animate-in fade-in">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-xl flex flex-col max-h-[90vh] overflow-hidden animate-in zoom-in-90 duration-300">
-              <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
+        {/* Template Selection Modal */}
+        {modalConfig.isOpen && modalConfig.mode === 'select-template' && (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100] animate-in fade-in duration-200">
+            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl h-[80vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+              <header className="px-10 py-8 border-b border-slate-100 flex justify-between items-center bg-indigo-50/30">
+                <div>
+                  <h2 className="text-2xl font-black text-slate-800 tracking-tighter mb-1">Select a Template</h2>
+                  <p className="text-sm font-medium text-slate-400">Choose a structure to start drafting your document</p>
+                </div>
+                <button onClick={() => setModalConfig({ isOpen: false })} className="p-3 bg-white border border-slate-200 hover:bg-slate-50 text-slate-400 hover:text-slate-600 rounded-2xl transition-all shadow-sm"><Icon name="X" /></button>
+              </header>
+              <div className="flex-1 overflow-y-auto p-10 custom-scrollbar grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {structures.map(t => (
+                  <div key={t.id} onClick={() => { loadStructure(t); setModalConfig({ isOpen: false }); }} className="group bg-white border border-slate-200 hover:border-indigo-400 hover:shadow-2xl hover:-translate-y-2 p-8 rounded-3xl cursor-pointer transition-all flex flex-col h-56 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-indigo-50/50 to-indigo-100/30 rounded-bl-full -mr-8 -mt-8"></div>
+                    <span className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-6 shadow-sm group-hover:bg-indigo-600 group-hover:text-white transition-all"><Icon name="FileText" size={24} /></span>
+                    <h3 className="text-lg font-black text-slate-800 mb-2 leading-tight group-hover:text-indigo-700">{t.title}</h3>
+                    <div className="mt-auto flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-300 group-hover:text-indigo-400 transition-colors">Start Drafting <Icon name="ArrowRight" size={12} /></div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Global Modals */}
+        {modalConfig.isOpen && (modalConfig.mode === 'variables' || modalConfig.mode === 'save-structure' || modalConfig.mode === 'create' || modalConfig.mode === 'edit' || modalConfig.mode === 'edit-instance') && (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100] animate-in fade-in">
+            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-xl flex flex-col max-h-[90vh] overflow-hidden">
+              <header className="px-8 py-6 border-b border-slate-100 flex items-center justify-between shrink-0 bg-slate-50/50">
                 <div className="flex items-center gap-3">
-                  <div className="bg-slate-100 p-2 rounded-full text-indigo-600">
-                    <Icon name={modalConfig.mode === 'variables' ? 'Database' : 'FileText'} />
-                  </div >
-                  <h3 className="font-black text-slate-800 uppercase tracking-widest text-xs">{modalConfig.title}</h3>
-                </div >
-                <button onClick={() => setModalConfig({ ...modalConfig, isOpen: false })} className="text-slate-400 hover:text-slate-600 bg-slate-100 p-2 rounded-full transition-colors"><Icon name="X" /></button>
-              </div >
-              <div className="flex-1 overflow-y-auto custom-scrollbar">
+                  <h3 className="font-black text-slate-800 uppercase tracking-widest text-xs">{modalConfig.title || 'Action'}</h3>
+                </div>
+                <button onClick={() => setModalConfig({ ...modalConfig, isOpen: false })} className="text-slate-400 hover:text-slate-600 bg-white border border-slate-200 p-2 rounded-xl"><Icon name="X" /></button>
+              </header>
+              <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
                 {modalConfig.mode === 'variables' ? (
                   <div className="space-y-12">
                     <section>
@@ -1104,34 +1027,19 @@ function App() {
                     e.preventDefault();
                     saveStructureToCloud(modalConfig.title);
                     setModalConfig({ ...modalConfig, isOpen: false });
-                  }} className="p-6 space-y-6">
+                  }} className="space-y-6">
                     <div>
                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Structure Name</label>
-                      <input
-                        type="text"
-                        required
-                        autoFocus
-                        value={modalConfig.title}
-                        onChange={(e) => setModalConfig({ ...modalConfig, title: e.target.value })}
-                        className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm font-bold shadow-sm focus:border-indigo-500 outline-none"
-                        placeholder="e.g. Divorce Decree Template"
-                      />
-                      <p className="text-[9px] text-slate-400 mt-2">This will save the current markdown to the cloud library as a 'Structure'.</p>
+                      <input type="text" required autoFocus value={modalConfig.title} onChange={(e) => setModalConfig({ ...modalConfig, title: e.target.value })} className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm font-bold shadow-sm focus:border-indigo-500 outline-none" />
                     </div>
                     <button type="submit" className="w-full py-3 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase hover:bg-indigo-700 transition-colors shadow-lg">Save Structure</button>
                   </form>
                 ) : (
-                  <form onSubmit={handleSaveClause} className="p-6 space-y-6">
+                  <form onSubmit={handleSaveClause} className="space-y-6">
                     {modalConfig.mode !== 'edit-instance' && (
                       <div>
                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Title</label>
                         <input type="text" required value={modalConfig.title} onChange={(e) => setModalConfig({ ...modalConfig, title: e.target.value })} className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm font-bold shadow-sm" />
-                      </div>
-                    )}
-                    {modalConfig.mode !== 'edit-instance' && (
-                      <div>
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Tag (Optional)</label>
-                        <input type="text" value={modalConfig.tag} onChange={(e) => setModalConfig({ ...modalConfig, tag: e.target.value })} className="w-full px-4 py-2 border border-slate-200 rounded-xl text-xs font-bold shadow-sm text-indigo-600" placeholder="e.g. Standard, Special, Utah Only" />
                       </div>
                     )}
                     <div>
@@ -1141,46 +1049,31 @@ function App() {
                     <button type="submit" className="w-full py-3 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase">Apply Changes</button>
                   </form>
                 )}
-
-
               </div>
-            </div >
-          </div >
-        )
-        }
+            </div>
+          </div>
+        )}
       </main>
-      <footer className="h-10 bg-white border-t border-slate-200 px-6 flex items-center justify-between text-[9px] font-black text-slate-300 uppercase tracking-widest shrink-0 z-50">
-        <span>DocAssemble v5.3 (Template Controls Fixed)</span>
-        <span>Offline Mode Ready (PWA)</span>
+
+      <footer className="h-12 bg-white border-t border-slate-200 px-8 flex items-center justify-between text-[10px] font-black text-slate-400 uppercase tracking-widest shrink-0 z-50">
+        <div className="flex gap-6">
+          <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]"></div> DocAssemble Premium v6.0</span>
+          <span>Live Cloud Sync Active</span>
+        </div>
+        <div className="flex items-center gap-4">
+          <Icon name="ShieldCheck" size={14} className="text-indigo-400" />
+          <span>Protected Case Workspace</span>
+        </div>
       </footer>
 
       {/* Inline Variable Editor */}
       {editingVariable && (
-        <div
-          style={{
-            position: 'fixed',
-            top: editingVariable.rect.top,
-            left: editingVariable.rect.left,
-            width: Math.max(editingVariable.rect.width + 20, 120),
-            zIndex: 100
-          }}
-        >
-          <input
-            autoFocus
-            className="w-full px-2 py-0.5 rounded font-bold border-2 border-indigo-500 font-mono text-[0.85em] bg-white shadow-xl outline-none text-indigo-700 animate-in zoom-in-95 duration-100"
-            style={{ height: Math.max(editingVariable.rect.height + 4, 30) }}
-            value={editingVariable.value}
-            onChange={(e) => setEditingVariable({ ...editingVariable, value: e.target.value })}
-            onBlur={saveVariableEdit}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') { e.target.blur(); }
-              if (e.key === 'Escape') setEditingVariable(null);
-            }}
-          />
+        <div style={{ position: 'fixed', top: editingVariable.rect.top, left: editingVariable.rect.left, width: Math.max(editingVariable.rect.width + 20, 120), zIndex: 100 }}>
+          <input autoFocus className="w-full px-2 py-0.5 rounded font-bold border-2 border-indigo-500 font-mono text-[0.85em] bg-white shadow-xl outline-none text-indigo-700" value={editingVariable.value} onChange={(e) => setEditingVariable({ ...editingVariable, value: e.target.value })} onBlur={saveVariableEdit} onKeyDown={(e) => e.key === 'Enter' && e.target.blur()} />
         </div>
       )}
-    </div >
+    </div>
   );
-}
+};
 
 export default App;

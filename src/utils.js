@@ -157,3 +157,46 @@ export const setNestedValue = (obj, path, value) => {
 
     return newObj;
 };
+
+// --- 5. Metadata Extraction ---
+export const extractStructureMetadata = (markdown) => {
+    if (!markdown) return { variables: [], sections: [], loops: [] };
+
+    const variables = new Set();
+    const sections = [];
+    const loops = new Set();
+
+    const lines = markdown.split('\n');
+
+    lines.forEach(line => {
+        // 1. Sections (# Title)
+        const sectionMatch = line.match(/^(#{1,6})\s+(.*)/);
+        if (sectionMatch) {
+            sections.push({
+                level: sectionMatch[1].length,
+                title: sectionMatch[2].trim()
+            });
+        }
+
+        // 2. Loops ({#foreach list})
+        const loopMatch = line.match(/\{#foreach\s+([a-zA-Z0-9_]+)\}/);
+        if (loopMatch) {
+            loops.add(loopMatch[1]);
+        }
+    });
+
+    // 3. Variables ({var_name}) - everywhere in text
+    const varMatches = markdown.matchAll(/\{([a-zA-Z0-9_]+)\}/g);
+    for (const match of varMatches) {
+        // Filter out loop-related markers if necessary (though regex matches only word chars)
+        // If it starts with # it's a loop start, handled above or by filtering.
+        // Actually, the regex {([a-zA-Z0-9_]+)} won't match {#foreach}.
+        variables.add(match[1]);
+    }
+
+    return {
+        variables: Array.from(variables).sort(),
+        sections,
+        loops: Array.from(loops).sort()
+    };
+};
