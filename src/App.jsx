@@ -397,6 +397,23 @@ function App() {
 
               {viewMode === 'assemble' && (
                 <div className="flex flex-col gap-1.5">
+                  {/* Progress Indicator */}
+                  {(() => {
+                    const totalSlots = parsedTemplate.filter(i => i.type === 'slot').length;
+                    const filledSlots = parsedTemplate.filter(i => i.type === 'slot' && i.value).length;
+                    const isAllFilled = totalSlots > 0 && totalSlots === filledSlots;
+                    
+                    return (
+                        <div className={`mb-2 px-3 py-2.5 rounded-lg border flex items-center justify-between shadow-sm ${isAllFilled ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-amber-50 border-amber-200 text-amber-700'}`}>
+                        <div className="flex items-center gap-2">
+                            <Icon name={isAllFilled ? "CheckCircle2" : "AlertCircle"} size={16} />
+                            <span className="text-[11px] font-black uppercase tracking-wide">{filledSlots}/{totalSlots} Sections</span>
+                        </div>
+                        {isAllFilled && <span className="text-[9px] font-black uppercase bg-emerald-100 px-1.5 py-0.5 rounded">Ready</span>}
+                        </div>
+                    );
+                  })()}
+
                   {activeCategories.map(cat => {
                     const relevantSlots = parsedTemplate.filter(item => item.type === 'slot' && item.category === cat);
                     const isComplete = relevantSlots.length > 0 && relevantSlots.every(slot => slot.value !== null);
