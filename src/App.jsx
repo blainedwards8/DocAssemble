@@ -3,6 +3,7 @@ import { pb } from './lib/pocketbase';
 import Login from './components/Login';
 import Icon from './components/Icon';
 import MarkdownRenderer from './components/MarkdownRenderer';
+import MattersDashboard from './components/MattersDashboard';
 import { resolveVariables, parseMarkdown, triggerSave, getNestedValue, setNestedValue } from './utils';
 import { generateDocx, generatePdf, generateRtf } from './exportUtils';
 import { INITIAL_SNIPPETS, INITIAL_RAW_TEMPLATE, TIER_TYPES } from './constants';
@@ -34,12 +35,12 @@ function App() {
   });
   const [continuousNumbering, setContinuousNumbering] = useState(initialData.continuousNumbering !== undefined ? initialData.continuousNumbering : true);
   const [tierStyles, setTierStyles] = useState(initialData.tierStyles || ['decimal', 'lower-alpha', 'lower-roman']);
-  const [viewMode, setViewMode] = useState('assemble');
   const [slotValues, setSlotValues] = useState(initialData.slotValues || {});
   const [disabledSlots, setDisabledSlots] = useState(new Set(initialData.disabledSlots || []));
   const [lastSaved, setLastSaved] = useState(null);
 
   const [activeTab, setActiveTab] = useState(null);
+  const [viewMode, setViewMode] = useState('dashboard'); // 'dashboard', 'assemble', 'structure', 'preview'
   const [draggedItem, setDraggedItem] = useState(null);
   const [dragOverSlotId, setDragOverSlotId] = useState(null);
 
@@ -550,11 +551,94 @@ function App() {
     setActiveTab(filteredCategories[0]);
   }
 
+  const loadStructure = (structure) => {
+    if (confirm("Load this structure? Unsaved progress will be lost.")) {
+      setRawTemplate(structure.content);
+      setStructureTitle(structure.title);
+      setStructureId(structure.id); // Set ID for updates
+      setViewMode('assemble');
+      setSlotValues({});
+      setVariables({});
+      setSnippets([]); // Should we clear snippets? Probably keep them available as "library"
+      // Wait, snippets are loaded from DB now. So we just re-fetch or keep existing library.
+      // Keeping existing library is correct as they are global templates.
+    }
+  };
 
-  if (!user) {
-    return <Login onLogin={setUser} />;
+  const createMatter = async (data) => {
+    try {
+      const record = await pb.collection('matters').create(data);
+      setMatters([record, ...matters]);
+    } catch (err) {
+      console.error("Failed to create matter:", err);
+      alert("Failed to create matter.");
+    }
+  };
+
+  const openDocument = (doc) => {
+    // If doc has a file (PDF/DOCX), open it.
+    // If it's a saved assembly session (future feature), load it.
+    if (doc.file) {
+      const url = pb.files.getUrl(doc, doc.file);
+      window.open(url, '_blank');
+    } else {
+      alert("This document does not have a viewable file.");
+    }
+  };
+
+  if (!pb.authStore.isValid) {
+    return <Login pb={pb} onLogin={() => { setViewMode('dashboard'); window.location.reload(); }} />;
   }
 
+  // Dashboard View
+  if (viewMode === 'dashboard') {
+    return (
+      <div className="min-h-screen flex flex-col font-sans text-slate-600 bg-slate-50">
+        <MattersDashboard
+          pb={pb}
+          matters={matters}
+          activeMatterId={activeMatterId}
+          onSelectMatter={setActiveMatterId}
+          onCreateMatter={createMatter}
+          onOpenDocument={openDocument}
+          onNewDocument={() => setModalConfig({ isOpen: true, mode: 'select-template' })}
+        />
+        {/* Template Selection Modal */}
+        {modalConfig.isOpen && modalConfig.mode === 'select-template' && (
+          <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in duration-200">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl h-[80vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+              <header className="px-8 py-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                <div>
+                  <h2 className="text-xl font-black text-slate-800 tracking-tight">Select a Template</h2>
+                  <p className="text-sm font-medium text-slate-400">Choose a starting point for your document</p>
+                </div>
+                <button onClick={() => setModalConfig({ isOpen: false })} className="p-2 hover:bg-slate-100 rounded-full transition-colors"><Icon name="X" /></button>
+              </header>
+              <div className="flex-1 overflow-y-auto p-8 custom-scrollbar bg-slate-50/30">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {structures.map(t => (
+                    <div key={t.id} onClick={() => {
+                      loadStructure(t);
+                      setModalConfig({ isOpen: false });
+                    }} className="group bg-white border border-slate-200 hover:border-indigo-400 hover:shadow-xl hover:-translate-y-1 p-6 rounded-2xl cursor-pointer transition-all flex flex-col justify-between h-48 relative overflow-hidden">
+                      <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-slate-50 to-indigo-50/50 rounded-bl-full -mr-6 -mt-6 transition-transform group-hover:scale-150 duration-500"></div>
+                      <div className="relative z-10">
+                        <span className="w-10 h-10 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center mb-4"><Icon name="FileText" size={20} /></span>
+                        <h3 className="font-bold text-slate-800 mb-1 leading-snug group-hover:text-indigo-700 transition-colors">{t.title}</h3>
+                      </div>
+                      <div className="mt-auto relative z-10 pt-4 border-t border-slate-50">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest group-hover:text-indigo-500 transition-colors">Select Template →</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-screen bg-slate-100 text-slate-900 font-sans overflow-hidden select-none">
@@ -598,24 +682,31 @@ function App() {
         reader.readAsText(e.target.files[0]);
       }} />
 
-      <header className="flex items-center justify-between px-6 py-3 bg-white border-b border-slate-200 shrink-0 z-20 shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="bg-indigo-600 p-1.5 rounded text-white shadow-sm"><Icon name="Layout" /></div>
-          <div><h1 className="text-sm font-black tracking-tight text-slate-800 uppercase leading-none">DocAssemble Desktop</h1></div>
-
-          {/* Matter Selector */}
-          <div className="ml-4 pl-4 border-l border-slate-200">
-            <select
-              value={activeMatterId || ''}
-              onChange={(e) => setActiveMatterId(e.target.value)}
-              className="bg-slate-50 border border-slate-200 text-slate-700 text-[10px] font-bold uppercase rounded px-2 py-1 outline-none focus:border-indigo-500"
-            >
-              <option value="" disabled>Select Matter...</option>
-              {matters.map(m => (
-                <option key={m.id} value={m.id}>{m.title} ({m.case_number})</option>
-              ))}
-            </select>
+      <header className="h-14 bg-white border-b border-slate-200 flex items-center justify-between px-4 shrink-0 z-50 shadow-sm relative">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 mr-4 cursor-pointer" onClick={() => setViewMode('dashboard')}>
+            <div className="bg-indigo-600 text-white p-1.5 rounded-lg shadow-sm shadow-indigo-200">
+              <Icon name="FileText" size={18} />
+            </div>
+            <span className="text-sm font-black tracking-tight text-slate-800 hidden sm:inline">DocAssemble</span>
           </div>
+
+          <button
+            onClick={() => setViewMode('dashboard')}
+            className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-bold transition-all"
+          >
+            <Icon name="LayoutGrid" size={14} />
+            <span className="hidden sm:inline">Dashboard</span>
+          </button>
+
+          {activeMatterId && (
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-lg border border-indigo-100">
+              <Icon name="Briefcase" size={14} />
+              <span className="text-xs font-bold max-w-[150px] truncate">
+                {matters.find(m => m.id === activeMatterId)?.title}
+              </span>
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <div className="mr-2 flex items-center gap-2">
@@ -885,16 +976,7 @@ function App() {
                 </div>
               ) : (
                 structures.map(t => (
-                  <div key={t.id} className="group relative bg-white border border-slate-200 rounded-lg p-3 hover:border-indigo-400 hover:shadow-md transition-all cursor-pointer" onClick={() => {
-                    if (confirm(`Load template "${t.title}"? Current progress may be lost.`)) {
-                      setRawTemplate(t.content);
-                      setStructureTitle(t.title);
-                      setStructureId(t.id);
-                      setLastSaved(new Date(t.updated));
-                      setSlotValues({}); // Reset values on new template load
-                      setViewMode('structure'); // Stay on structure view or switch to assemble? User usually builds structure first.
-                    }
-                  }}>
+                  <div key={t.id} className="group relative bg-white border border-slate-200 rounded-lg p-3 hover:border-indigo-400 hover:shadow-md transition-all cursor-pointer" onClick={() => loadStructure(t)}>
                     <div className="flex items-start justify-between">
                       <div>
                         <h3 className="text-[11px] font-bold text-slate-700 leading-tight mb-1">{t.title}</h3>
@@ -916,7 +998,7 @@ function App() {
                 <div className="flex items-center gap-3">
                   <div className="bg-slate-100 p-2 rounded-full text-indigo-600">
                     <Icon name={modalConfig.mode === 'variables' ? 'Database' : 'FileText'} />
-                  </div>
+                  </div >
                   <h3 className="font-black text-slate-800 uppercase tracking-widest text-xs">{modalConfig.title}</h3>
                 </div >
                 <button onClick={() => setModalConfig({ ...modalConfig, isOpen: false })} className="text-slate-400 hover:text-slate-600 bg-slate-100 p-2 rounded-full transition-colors"><Icon name="X" /></button>
