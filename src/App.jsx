@@ -1,5 +1,6 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { pb } from './lib/pocketbase';
+import Login from './components/Login';
 import Icon from './components/Icon';
 import MarkdownRenderer from './components/MarkdownRenderer';
 import { resolveVariables, parseMarkdown, triggerSave } from './utils';
@@ -7,9 +8,14 @@ import { generateDocx, generatePdf, generateRtf } from './exportUtils';
 import { INITIAL_SNIPPETS, INITIAL_RAW_TEMPLATE, TIER_TYPES } from './constants';
 
 function App() {
+  const [user, setUser] = useState(pb.authStore.record);
+  const [matters, setMatters] = useState([]);
+  const [activeMatterId, setActiveMatterId] = useState(null);
+
   // Load initial state once
   const [initialData] = useState(() => {
     try {
+      // Keep local storage for offline/fallback or non-critical UI state
       const item = localStorage.getItem('DOCASSEMBLE_AUTOSAVE_V1');
       return item ? JSON.parse(item) : {};
     } catch (e) {
@@ -17,6 +23,54 @@ function App() {
       return {};
     }
   });
+
+  useEffect(() => {
+    // Auth Listener
+    return pb.authStore.onChange((token, model) => {
+      setUser(model);
+    });
+  }, []);
+
+  useEffect(() => {
+    async function loadData() {
+      if (!user) return;
+      try {
+        // 1. Load Templates
+        // Assuming 'templates' collection exists. If not, we might need a fallback or create it.
+        // For now, we'll try to fetch. If 404, we'll ignore (or user should create it).
+        try {
+          const templates = await pb.collection('templates').getFullList({ sort: 'title' });
+          if (templates.length > 0) {
+            const formatted = templates.map(t => ({
+              id: t.id,
+              category: t.category,
+              title: t.title,
+              content: t.content, // Assuming content is the markdown
+              tag: t.tags ? (typeof t.tags === 'string' ? t.tags : JSON.stringify(t.tags)) : '' // basic handling
+            }));
+            setSnippets(formatted);
+          }
+        } catch (err) {
+          console.warn("Templates collection not found or empty", err);
+        }
+
+        // 2. Load Matters
+        try {
+          const matterList = await pb.collection('matters').getFullList({ sort: '-created' });
+          setMatters(matterList);
+          if (matterList.length > 0) setActiveMatterId(matterList[0].id);
+        } catch (err) {
+          console.warn("Matters collection not found", err);
+        }
+
+      } catch (e) {
+        console.error("Error loading PB data", e);
+      }
+    }
+    loadData();
+  }, [user]);
+
+
 
   const [rawTemplate, setRawTemplate] = useState(initialData.rawTemplate || INITIAL_RAW_TEMPLATE);
   const [snippets, setSnippets] = useState(initialData.snippets || INITIAL_SNIPPETS);
@@ -247,6 +301,72 @@ function App() {
     }
   };
 
+  const saveLibraryToCloud = async () => {
+    if (!confirm(`Sync ${snippets.length} clauses to PocketBase? This may overwrite changes.`)) return;
+
+    // Simple sync strategy: 
+    // 1. Iterate snippets
+    // 2. If valid PB ID (15 chars?), update. Else create.
+    let count = 0;
+    for (const s of snippets) {
+      try {
+        // Check if ID looks like a PB ID (15 chars alphanumeric)
+        // Local IDs are often `c-` prefix or just long numeric. PB IDs are 15 chars.
+        const isPbId = s.id && s.id.length === 15 && !s.id.includes('-');
+
+        const payload = {
+          title: s.title,
+          content: s.content,
+          category: s.category,
+          tags: s.tag // Schema has 'tags' as json, but we treated it as string in load. 
+          // If schema is JSON array, we need to wrap.
+          // Looking at schema: tags is JSON.
+        };
+        // Fix tags format for schema
+        payload.tags = s.tag ? [s.tag] : [];
+
+        // Also, 'templates' might need other fields? We'll assume strict fields are title, content, category.
+
+        if (isPbId) {
+          await pb.collection('templates').update(s.id, payload);
+        } else {
+          const rec = await pb.collection('templates').create(payload);
+          // Update local ID to match PB ID to avoid duplicates next time
+          setSnippets(prev => prev.map(p => p.id === s.id ? { ...p, id: rec.id } : p));
+        }
+        count++;
+      } catch (err) {
+        console.error(`Failed to save snippet ${s.title}`, err);
+      }
+    }
+    alert(`Synced ${count} items to Cloud.`);
+  };
+
+  const saveDocumentToCloud = async () => {
+    if (!activeMatterId) {
+      alert("Please select a Matter first.");
+      return;
+    }
+
+    try {
+      const filename = `Generated_${Date.now()}.pdf`;
+      const blob = generatePdf(parsedTemplate, variables, sectionListOffsets, continuousNumbering, tierStyles, disabledSlots);
+
+      // formData
+      const formData = new FormData();
+      formData.append('title', `DocAssemble Generated - ${new Date().toLocaleString()}`);
+      formData.append('matter', activeMatterId);
+      formData.append('file', blob, filename);
+      // formData.append('summary', 'Generated via DocAssemble Desktop');
+
+      await pb.collection('documents').create(formData);
+      alert("Document saved to Matter successfully!");
+    } catch (e) {
+      console.error("Cloud Save Failed", e);
+      alert("Failed to save to cloud: " + e.message);
+    }
+  };
+
   const onDragStart = (e, snippet) => { setDraggedItem(snippet); e.dataTransfer.setData('snippetId', snippet.id); e.dataTransfer.effectAllowed = 'copy'; };
   const onDragOver = (e, item) => { e.preventDefault(); if (!draggedItem) return; setDragOverSlotId(item.id); };
   const onDragLeave = () => setDragOverSlotId(null);
@@ -278,6 +398,10 @@ function App() {
       return next;
     });
   };
+
+  if (!user) {
+    return <Login onLogin={setUser} />;
+  }
 
   return (
     <div className="flex flex-col h-screen bg-slate-100 text-slate-900 font-sans overflow-hidden select-none">
@@ -325,8 +449,28 @@ function App() {
         <div className="flex items-center gap-3">
           <div className="bg-indigo-600 p-1.5 rounded text-white shadow-sm"><Icon name="Layout" /></div>
           <div><h1 className="text-sm font-black tracking-tight text-slate-800 uppercase leading-none">DocAssemble Desktop</h1></div>
+
+          {/* Matter Selector */}
+          <div className="ml-4 pl-4 border-l border-slate-200">
+            <select
+              value={activeMatterId || ''}
+              onChange={(e) => setActiveMatterId(e.target.value)}
+              className="bg-slate-50 border border-slate-200 text-slate-700 text-[10px] font-bold uppercase rounded px-2 py-1 outline-none focus:border-indigo-500"
+            >
+              <option value="" disabled>Select Matter...</option>
+              {matters.map(m => (
+                <option key={m.id} value={m.id}>{m.title} ({m.case_number})</option>
+              ))}
+            </select>
+          </div>
         </div>
         <div className="flex items-center gap-2">
+          <div className="mr-2 flex items-center gap-2">
+            <span className="text-[10px] font-bold text-slate-400">{user.email}</span>
+            <button onClick={() => pb.authStore.clear()} className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-red-500" title="Logout">
+              <Icon name="LogOut" size={14} />
+            </button>
+          </div>
           {lastSaved && (
             <span className="text-[10px] uppercase font-bold text-slate-400 mr-2 animate-pulse transition-opacity duration-1000">
               Sorted & Saved {lastSaved.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
@@ -367,6 +511,10 @@ function App() {
               <button onClick={() => handleExport('rtf')} className="w-full text-left px-4 py-3 hover:bg-slate-50 text-xs font-bold text-slate-700 flex items-center gap-2">
                 <Icon name="FileType" size={14} className="text-slate-500" /> RTF (Rich Text)
               </button>
+              <div className="h-px bg-slate-100 my-0"></div>
+              <button onClick={saveDocumentToCloud} className={`w-full text-left px-4 py-3 hover:bg-slate-50 text-xs font-bold flex items-center gap-2 ${activeMatterId ? 'text-indigo-600' : 'text-slate-300'}`}>
+                <Icon name="Cloud" size={14} /> Save to Matter
+              </button>
             </div>
           </div>
         </div>
@@ -383,8 +531,8 @@ function App() {
                 <div className="flex gap-1">
                   {viewMode === 'assemble' ? (
                     <>
-                      <button onClick={() => libraryInputRef.current.click()} className="p-1 text-slate-400 hover:text-indigo-600"><Icon name="Upload" size={14} /></button>
-                      <button onClick={exportLibrary} className="p-1 text-slate-400 hover:text-indigo-600"><Icon name="Save" size={14} /></button>
+                      <button onClick={() => libraryInputRef.current.click()} className="p-1 text-slate-400 hover:text-indigo-600" title="Import Local JSON"><Icon name="Upload" size={14} /></button>
+                      <button onClick={saveLibraryToCloud} className="p-1 text-indigo-400 hover:text-indigo-600" title="Sync to Cloud"><Icon name="CloudUpload" size={14} /></button>
                     </>
                   ) : (
                     <>
@@ -402,15 +550,15 @@ function App() {
                     const totalSlots = parsedTemplate.filter(i => i.type === 'slot').length;
                     const filledSlots = parsedTemplate.filter(i => i.type === 'slot' && i.value).length;
                     const isAllFilled = totalSlots > 0 && totalSlots === filledSlots;
-                    
+
                     return (
-                        <div className={`mb-2 px-3 py-2.5 rounded-lg border flex items-center justify-between shadow-sm ${isAllFilled ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-amber-50 border-amber-200 text-amber-700'}`}>
+                      <div className={`mb-2 px-3 py-2.5 rounded-lg border flex items-center justify-between shadow-sm ${isAllFilled ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-amber-50 border-amber-200 text-amber-700'}`}>
                         <div className="flex items-center gap-2">
-                            <Icon name={isAllFilled ? "CheckCircle2" : "AlertCircle"} size={16} />
-                            <span className="text-[11px] font-black uppercase tracking-wide">{filledSlots}/{totalSlots} Sections</span>
+                          <Icon name={isAllFilled ? "CheckCircle2" : "AlertCircle"} size={16} />
+                          <span className="text-[11px] font-black uppercase tracking-wide">{filledSlots}/{totalSlots} Sections</span>
                         </div>
                         {isAllFilled && <span className="text-[9px] font-black uppercase bg-emerald-100 px-1.5 py-0.5 rounded">Ready</span>}
-                        </div>
+                      </div>
                     );
                   })()}
 
