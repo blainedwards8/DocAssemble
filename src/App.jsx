@@ -45,6 +45,11 @@ function App() {
 
   const [modalConfig, setModalConfig] = useState({ isOpen: false, mode: 'create', targetId: null, title: '', content: '', category: null, tag: '' });
 
+  // Structure State
+  const [structureTitle, setStructureTitle] = useState('New Structure');
+  const [structureId, setStructureId] = useState(null); // Track ID for updates
+  const [isSaving, setIsSaving] = useState(false);
+
   const fileInputRef = useRef(null);
   const libraryInputRef = useRef(null);
   const structureInputRef = useRef(null);
@@ -371,36 +376,62 @@ function App() {
     }
   };
 
-  const saveStructureToCloud = async (title) => {
+  // Auto-Save Logic
+  useEffect(() => {
+    if (viewMode === 'structure') {
+      const timer = setTimeout(() => {
+        if (rawTemplate) {
+          saveStructureAuto();
+        }
+      }, 2000); // 2 second debounce
+
+      return () => clearTimeout(timer);
+    }
+  }, [rawTemplate, structureTitle, viewMode]);
+
+  const saveStructureAuto = async () => {
+    if (!rawTemplate) return;
+    setIsSaving(true);
     try {
-      // Check if exists? For now, we'll just create or update if we had an ID tracked. 
-      // But for structures loaded from text, we might not have an ID.
-      // Let's do a search by title first? Or just create new for now. 
-      // User asked to name it.
-
-      // Basic duplicate check by title
-      const existing = structures.find(s => s.title.toLowerCase() === title.toLowerCase());
-
       const payload = {
-        title: title,
+        title: structureTitle,
         content: rawTemplate,
         category: 'Structure',
         tags: []
       };
 
-      if (existing) {
-        if (!confirm(`Structure "${title}" already exists. Overwrite?`)) return;
-        await pb.collection('templates').update(existing.id, payload);
-        // Update local state
-        setStructures(prev => prev.map(s => s.id === existing.id ? { ...s, ...payload, content: rawTemplate } : s));
+      let rec;
+      if (structureId) {
+        rec = await pb.collection('templates').update(structureId, payload);
       } else {
-        const rec = await pb.collection('templates').create(payload);
-        setStructures(prev => [...prev, { id: rec.id, ...payload, content: rawTemplate }]);
+        // Search if exists by title to avoid dupes on first save if ID missing
+        const existing = structures.find(s => s.title.toLowerCase() === structureTitle.toLowerCase());
+        if (existing) {
+          rec = await pb.collection('templates').update(existing.id, payload);
+          setStructureId(existing.id);
+        } else {
+          rec = await pb.collection('templates').create(payload);
+          setStructureId(rec.id);
+        }
       }
-      alert("Structure saved to Cloud successfully!");
+
+      setLastSaved(new Date());
+      // Update local list
+      setStructures(prev => {
+        const idx = prev.findIndex(s => s.id === rec.id);
+        if (idx >= 0) {
+          const newArr = [...prev];
+          newArr[idx] = { ...rec, content: rawTemplate }; // ensure content matches
+          return newArr;
+        } else {
+          return [...prev, { ...rec, content: rawTemplate }];
+        }
+      });
+
     } catch (e) {
-      console.error("Failed to save structure", e);
-      alert("Error saving structure: " + e.message);
+      console.error("Auto-save failed", e);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -683,16 +714,24 @@ function App() {
           {viewMode === 'structure' ? (
             <div className="mx-auto w-full max-w-4xl h-full bg-white rounded-xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden animate-in fade-in duration-300">
               <div className="px-6 py-3 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
-                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Structure</span>
-                <div className="flex gap-1">
+                <input
+                  type="text"
+                  value={structureTitle}
+                  onChange={(e) => setStructureTitle(e.target.value)}
+                  className="bg-transparent border-none text-[10px] font-black uppercase tracking-widest text-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500 rounded px-1 -ml-1 w-64"
+                  placeholder="STRUCTURE TITLE..."
+                />
+                <div className="flex gap-1 items-center">
+                  {isSaving ? (
+                    <span className="text-[9px] text-indigo-500 font-bold animate-pulse mr-2">SAVING...</span>
+                  ) : lastSaved ? (
+                    <span className="text-[9px] text-slate-300 font-bold mr-2">SAVED {lastSaved.toLocaleTimeString()}</span>
+                  ) : null}
                   <button onClick={() => structureInputRef.current.click()} className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-200 hover:bg-slate-300 rounded text-[9px] font-black uppercase transition-all">
                     <Icon name="Upload" size={12} /> Import
                   </button>
                   <button onClick={exportTemplate} className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 rounded text-[9px] font-black uppercase transition-all shadow-sm text-slate-600">
                     <Icon name="Download" size={12} /> Export
-                  </button>
-                  <button onClick={() => setModalConfig({ isOpen: true, mode: 'save-structure', title: 'Save Structure', content: '', category: 'Structure', tag: '' })} className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white rounded text-[9px] font-black uppercase transition-all shadow-md hover:bg-indigo-700 hover:shadow-lg">
-                    <Icon name="Cloud" size={12} /> Save to Cloud
                   </button>
                 </div>
               </div>
@@ -791,8 +830,11 @@ function App() {
                   <div key={t.id} className="group relative bg-white border border-slate-200 rounded-lg p-3 hover:border-indigo-400 hover:shadow-md transition-all cursor-pointer" onClick={() => {
                     if (confirm(`Load template "${t.title}"? Current progress may be lost.`)) {
                       setRawTemplate(t.content);
+                      setStructureTitle(t.title);
+                      setStructureId(t.id);
+                      setLastSaved(new Date(t.updated));
                       setSlotValues({}); // Reset values on new template load
-                      setViewMode('assemble');
+                      setViewMode('structure'); // Stay on structure view or switch to assemble? User usually builds structure first.
                     }
                   }}>
                     <div className="flex items-start justify-between">
@@ -862,8 +904,29 @@ function App() {
                       </section>
                     ))}
                   </div>
+                ) : modalConfig.mode === 'save-structure' ? (
+                  <form onSubmit={(e) => {
+                    e.preventDefault();
+                    saveStructureToCloud(modalConfig.title);
+                    setModalConfig({ ...modalConfig, isOpen: false });
+                  }} className="p-6 space-y-6">
+                    <div>
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Structure Name</label>
+                      <input
+                        type="text"
+                        required
+                        autoFocus
+                        value={modalConfig.title}
+                        onChange={(e) => setModalConfig({ ...modalConfig, title: e.target.value })}
+                        className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm font-bold shadow-sm focus:border-indigo-500 outline-none"
+                        placeholder="e.g. Divorce Decree Template"
+                      />
+                      <p className="text-[9px] text-slate-400 mt-2">This will save the current markdown to the cloud library as a 'Structure'.</p>
+                    </div>
+                    <button type="submit" className="w-full py-3 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase hover:bg-indigo-700 transition-colors shadow-lg">Save Structure</button>
+                  </form>
                 ) : (
-                  <form onSubmit={handleSaveClause} className="space-y-6">
+                  <form onSubmit={handleSaveClause} className="p-6 space-y-6">
                     {modalConfig.mode !== 'edit-instance' && (
                       <div>
                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Title</label>
@@ -884,29 +947,7 @@ function App() {
                   </form>
                 )}
 
-                {/* Save Structure Modal Content */}
-                {modalConfig.mode === 'save-structure' && (
-                  <form onSubmit={(e) => {
-                    e.preventDefault();
-                    saveStructureToCloud(modalConfig.title);
-                    setModalConfig({ ...modalConfig, isOpen: false });
-                  }} className="space-y-6">
-                    <div>
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Structure Name</label>
-                      <input
-                        type="text"
-                        required
-                        autoFocus
-                        value={modalConfig.title}
-                        onChange={(e) => setModalConfig({ ...modalConfig, title: e.target.value })}
-                        className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm font-bold shadow-sm focus:border-indigo-500 outline-none"
-                        placeholder="e.g. Divorce Decree Template"
-                      />
-                      <p className="text-[9px] text-slate-400 mt-2">This will save the current markdown to the cloud library as a 'Structure'.</p>
-                    </div>
-                    <button type="submit" className="w-full py-3 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase hover:bg-indigo-700 transition-colors shadow-lg">Save Structure</button>
-                  </form>
-                )}
+
               </div>
             </div >
           </div >
