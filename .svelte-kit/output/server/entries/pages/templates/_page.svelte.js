@@ -7,6 +7,7 @@ import "../../../chunks/exports.js";
 import "../../../chunks/utils.js";
 import "@sveltejs/kit/internal/server";
 import "../../../chunks/state.svelte.js";
+import "../../../chunks/pocketbase.js";
 function StructuresDashboard($$renderer, $$props) {
   $$renderer.component(($$renderer2) => {
     var $$store_subs;

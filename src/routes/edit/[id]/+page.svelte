@@ -42,6 +42,8 @@
     let dragOverSlotId = $state(null);
     let modalConfig = $state({ isOpen: false, mode: "" });
     let loading = $state(true);
+    let saveStatus = $state("idle"); // idle, saving, saved, error
+    let saveTimeout = null;
 
     onMount(async () => {
         const id = $page.params.id;
@@ -189,7 +191,25 @@
         };
         localStorage.setItem("DOCASSEMBLE_AUTOSAVE_V1", JSON.stringify(state));
         lastSaved = new Date();
+
+        // Trigger Cloud Autosave
+        if ($activeDocumentId && !loading) {
+            triggerAutosave();
+        }
     });
+
+    function triggerAutosave() {
+        if (saveTimeout) clearTimeout(saveTimeout);
+        saveStatus = "saving";
+        saveTimeout = setTimeout(async () => {
+            try {
+                await saveToCloud(true);
+                saveStatus = "saved";
+            } catch (err) {
+                saveStatus = "error";
+            }
+        }, 1500);
+    }
 
     // --- Handlers ---
     function handleVariableClick(path, rect) {
@@ -239,8 +259,8 @@
         }
     }
 
-    async function saveToCloud() {
-        if (!$activeMatter) return alert("Select a Matter first.");
+    async function saveToCloud(isAutosave = false) {
+        if (!$activeMatter) return;
         try {
             const state = {
                 rawTemplate: $rawTemplate,
@@ -261,10 +281,11 @@
                 await pb
                     .collection("documents")
                     .update($activeDocumentId, formData);
-                alert("Saved!");
+                if (!isAutosave) alert("Saved!");
             }
         } catch (e) {
             console.error(e);
+            if (isAutosave) throw e;
         }
     }
 
@@ -323,30 +344,54 @@
             </div>
 
             <div class="flex items-center gap-3">
-                {#if lastSaved}
-                    <span
-                        class="text-[10px] uppercase font-bold text-slate-300 mr-4"
-                    >
-                        Last Saved {lastSaved.toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                        })}
-                    </span>
-                {/if}
+                <div class="flex items-center gap-2 mr-4">
+                    {#if saveStatus === "saving"}
+                        <Icon
+                            name="Loader2"
+                            size={14}
+                            class="text-indigo-500 animate-spin"
+                        />
+                        <span
+                            class="text-[10px] uppercase font-black text-indigo-500 tracking-widest"
+                            >Saving...</span
+                        >
+                    {:else if saveStatus === "saved"}
+                        <Icon name="Check" size={14} class="text-emerald-500" />
+                        <span
+                            class="text-[10px] uppercase font-black text-emerald-500 tracking-widest"
+                            >Saved</span
+                        >
+                    {:else if saveStatus === "error"}
+                        <Icon
+                            name="AlertCircle"
+                            size={14}
+                            class="text-red-500"
+                        />
+                        <span
+                            class="text-[10px] uppercase font-black text-red-500 tracking-widest"
+                            >Save Failed</span
+                        >
+                    {:else if lastSaved}
+                        <span
+                            class="text-[10px] uppercase font-bold text-slate-300"
+                        >
+                            Last Sync {lastSaved.toLocaleTimeString([], {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                            })}
+                        </span>
+                    {/if}
+                </div>
+
                 <button
                     onclick={() => handleExport("docx")}
-                    class="px-4 py-2 bg-white border border-slate-200 rounded-lg text-[10px] font-black uppercase text-slate-600 border-none cursor-pointer"
+                    class="px-4 py-2 bg-white border border-slate-200 rounded-lg text-[10px] font-black uppercase text-slate-600 border-none cursor-pointer hover:bg-slate-50 transition-all font-sans"
                     >DOCX</button
                 >
                 <button
                     onclick={() => handleExport("pdf")}
-                    class="px-4 py-2 bg-white border border-slate-200 rounded-lg text-[10px] font-black uppercase text-slate-600 border-none cursor-pointer"
+                    class="px-4 py-2 bg-white border border-slate-200 rounded-lg text-[10px] font-black uppercase text-slate-600 border-none cursor-pointer hover:bg-slate-50 transition-all font-sans"
                     >PDF</button
-                >
-                <button
-                    onclick={saveToCloud}
-                    class="px-6 py-2.5 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase shadow-lg border-none cursor-pointer"
-                    >Save to Matter</button
                 >
             </div>
         </div>

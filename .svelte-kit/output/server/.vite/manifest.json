@@ -129,7 +129,7 @@
       "_pocketbase.js"
     ],
     "css": [
-      "_app/immutable/assets/_layout.DFpkCRVr.css"
+      "_app/immutable/assets/_layout.DleKxDNr.css"
     ]
   },
   "src/routes/+page.svelte": {
@@ -186,7 +186,8 @@
       "_TopNav.js",
       "_exports.js",
       "_utils.js",
-      "_state.svelte.js"
+      "_state.svelte.js",
+      "_pocketbase.js"
     ]
   },
   "src/routes/templates/[id]/+page.svelte": {

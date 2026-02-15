@@ -2,15 +2,47 @@
     import StructuresDashboard from "$lib/components/StructuresDashboard.svelte";
     import TopNav from "$lib/components/TopNav.svelte";
     import { goto } from "$app/navigation";
+    import { activeMatter } from "$lib/stores/app";
+    import { pb } from "$lib/pocketbase";
 
     function handleEditStructure(structure) {
         goto(`/templates/${structure.id}`);
     }
 
+    async function handleUseStructure(structure) {
+        if ($activeMatter) {
+            try {
+                const state = {
+                    rawTemplate: structure.content,
+                    structureId: structure.id,
+                    structureTitle: structure.title,
+                    variables: {},
+                    slotValues: {},
+                    tierStyles: ["decimal", "lower-alpha", "lower-roman"],
+                    continuousNumbering: true,
+                    variableConfigs: {},
+                };
+
+                const formData = new FormData();
+                formData.append("title", structure.title);
+                formData.append("matter", $activeMatter.id);
+                formData.append("state", JSON.stringify(state));
+                formData.append("description", JSON.stringify(state));
+
+                const rec = await pb.collection("documents").create(formData);
+                goto(`/edit/${rec.id}`);
+            } catch (err) {
+                console.error("Failed to create document", err);
+                alert("Failed to create document.");
+            }
+        } else {
+            // If no matter is active, maybe we just edit the template?
+            // Or ask to select a matter first.
+            goto(`/templates/${structure.id}`);
+        }
+    }
+
     function handleCreateStructure() {
-        // Logic for creating a new structure
-        // In the old app, this might have set a state to 'new'
-        // For the new app, we can just navigate to a special 'new' id or just /templates/new
         goto("/templates/new");
     }
 </script>
@@ -19,7 +51,7 @@
     <TopNav />
     <main class="flex-1 overflow-hidden flex flex-col">
         <StructuresDashboard
-            onEditStructure={handleEditStructure}
+            onEditStructure={handleUseStructure}
             onCreateStructure={handleCreateStructure}
         />
     </main>
