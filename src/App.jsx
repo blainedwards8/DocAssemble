@@ -434,15 +434,27 @@ function App() {
       formData.append('matter', activeMatterId);
       formData.append('file', blob, filename);
       // Store state in description (hacky but effective if no data field)
-      formData.append('description', JSON.stringify(state));
+      const jsonState = JSON.stringify(state);
+      console.log("Local state generated (JSON):", jsonState);
+      formData.append('description', jsonState);
+      formData.append('state', jsonState); // Try both common names
 
-      if (activeDocumentId) {
-        await pb.collection('documents').update(activeDocumentId, formData);
-        alert("Document updated successfully!");
-      } else {
-        const rec = await pb.collection('documents').create(formData);
-        setActiveDocumentId(rec.id);
-        alert("Document created and saved to Matter!");
+      try {
+        if (activeDocumentId) {
+          console.log("Updating document:", activeDocumentId);
+          const rec = await pb.collection('documents').update(activeDocumentId, formData);
+          console.log("Server response (update):", rec);
+          alert("Document updated successfully!");
+        } else {
+          console.log("Creating new document...");
+          const rec = await pb.collection('documents').create(formData);
+          console.log("Server response (create):", rec);
+          setActiveDocumentId(rec.id);
+          alert("Document created and saved to Matter!");
+        }
+      } catch (err) {
+        console.error("PocketBase Save Error:", err);
+        alert("Save failed. Please check console for details.");
       }
 
     } catch (e) {
@@ -468,6 +480,26 @@ function App() {
     if (!rawTemplate) return;
     setIsSaving(true);
     try {
+      if (activeDocumentId) {
+        // Instance-based structural editing: Save to the document's state field
+        const state = {
+          rawTemplate,
+          structureId,
+          structureTitle,
+          variables,
+          slotValues,
+          tierStyles,
+          continuousNumbering
+        };
+        const jsonState = JSON.stringify(state);
+        await pb.collection('documents').update(activeDocumentId, {
+          description: jsonState,
+          state: jsonState
+        });
+        setLastSaved(new Date());
+        return; // Skip template update
+      }
+
       const payload = {
         title: structureTitle,
         content: rawTemplate,
@@ -636,11 +668,13 @@ function App() {
       // If description contains JSON, parse it.
       // Fallback: If no JSON, maybe just load PDF? No, we can't edit PDF.
       let state = {};
-      if (doc.description && (doc.description.startsWith('{') || doc.description.startsWith('['))) {
-        state = JSON.parse(doc.description);
+      const sourceData = doc.state || doc.description;
+
+      if (sourceData && (sourceData.startsWith('{') || sourceData.startsWith('['))) {
+        state = JSON.parse(sourceData);
       } else {
-        console.warn("Document state missing or invalid:", doc.description);
-        alert(`This document cannot be edited. The source data (JSON state) is missing or corrupted in the PocketBase 'description' field. Field content: ${doc.description ? (doc.description.substring(0, 50) + '...') : 'empty'}`);
+        console.warn("Document state missing or invalid. SourceData:", sourceData);
+        alert(`This document cannot be edited. The source data (JSON state) is missing or corrupted in the PocketBase field (description or state). \n\nField content: ${sourceData ? (sourceData.substring(0, 50) + '...') : 'empty'}`);
         if (doc.file) {
           const url = pb.files.getUrl(doc, doc.file);
           window.open(url, '_blank');
@@ -768,18 +802,30 @@ function App() {
         {viewMode === 'structure-editor' && (
           <StructureEditor
             pb={pb}
-            initialStructure={editingStructure}
+            initialStructure={activeDocumentId ? { id: structureId, title: structureTitle, content: rawTemplate } : editingStructure}
             snippets={snippets}
             onUpdateSnippets={(newSnippets) => setSnippets(newSnippets)}
-            onBack={() => setViewMode('structures-dashboard')}
+            onBack={() => {
+              if (activeDocumentId) setViewMode('assemble');
+              else setViewMode('structures-dashboard');
+            }}
             onSave={(newRec) => {
-              setStructures(prev => {
-                const exists = prev.find(p => p.id === newRec.id);
-                if (exists) return prev.map(p => p.id === newRec.id ? newRec : p);
-                return [newRec, ...prev];
-              });
+              if (!activeDocumentId) {
+                setStructures(prev => {
+                  const exists = prev.find(p => p.id === newRec.id);
+                  if (exists) return prev.map(p => p.id === newRec.id ? newRec : p);
+                  return [newRec, ...prev];
+                });
+              }
               setEditingStructure(newRec);
             }}
+            activeDocumentId={activeDocumentId}
+            variables={variables}
+            slotValues={slotValues}
+            tierStyles={tierStyles}
+            continuousNumbering={continuousNumbering}
+            onContentChange={setRawTemplate}
+            onTitleChange={setStructureTitle}
           />
         )}
 
@@ -789,13 +835,24 @@ function App() {
             <div className="h-14 bg-white border-b border-slate-200 flex items-center justify-between px-6 shrink-0 z-40 relative">
               <div className="flex items-center gap-4">
                 <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200/50">
-                  {['assemble', 'preview'].map(m => (
-                    <button key={m} onClick={() => setViewMode(m)} className={`px-4 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === m ? 'bg-white text-indigo-600 shadow-sm border border-slate-100' : 'text-slate-400 hover:text-slate-600'}`}>{m}</button>
+                  {['blueprint', 'assemble', 'preview'].map(m => (
+                    <button
+                      key={m}
+                      onClick={() => setViewMode(m === 'blueprint' ? 'structure-editor' : m)}
+                      className={`px-4 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${((viewMode === 'structure-editor' && m === 'blueprint') || viewMode === m) ? 'bg-white text-indigo-600 shadow-sm border border-slate-100' : 'text-slate-400 hover:text-slate-600'}`}
+                    >
+                      {m}
+                    </button>
                   ))}
                 </div>
                 <button onClick={openVariableModal} className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-[10px] font-black uppercase text-slate-600 shadow-sm flex items-center gap-2 hover:bg-slate-50 transition-all">
                   <Icon name="Database" size={14} className="text-indigo-500" /> Variables
                 </button>
+                {structureId && (
+                  <button onClick={() => setViewMode('structure-editor')} className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-[10px] font-black uppercase text-slate-600 shadow-sm flex items-center gap-2 hover:bg-slate-50 transition-all">
+                    <Icon name="Layout" size={14} className="text-emerald-500" /> Edit Structure
+                  </button>
+                )}
               </div>
 
               <div className="flex items-center gap-3">

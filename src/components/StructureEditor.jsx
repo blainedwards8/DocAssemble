@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import Icon from './Icon';
 import { extractStructureMetadata } from '../utils';
 
-const StructureEditor = ({ pb, initialStructure, snippets, onUpdateSnippets, onSave, onBack }) => {
+const StructureEditor = ({ pb, initialStructure, snippets, onUpdateSnippets, onSave, onBack, activeDocumentId, variables, slotValues, tierStyles, continuousNumbering, onContentChange, onTitleChange }) => {
     const [title, setTitle] = useState(initialStructure?.title || 'New Structure');
     const [content, setContent] = useState(initialStructure?.content || '');
     const [isSaving, setIsSaving] = useState(false);
@@ -12,6 +12,15 @@ const StructureEditor = ({ pb, initialStructure, snippets, onUpdateSnippets, onS
     const [editingProvision, setEditingProvision] = useState(null);
 
     const metadata = useMemo(() => extractStructureMetadata(content), [content]);
+
+    // Update parent when local state changes
+    useEffect(() => {
+        onContentChange?.(content);
+    }, [content]);
+
+    useEffect(() => {
+        onTitleChange?.(title);
+    }, [title]);
 
     // Auto-save logic
     useEffect(() => {
@@ -26,6 +35,25 @@ const StructureEditor = ({ pb, initialStructure, snippets, onUpdateSnippets, onS
     const handleSave = async () => {
         setIsSaving(true);
         try {
+            if (activeDocumentId) {
+                // Instance-based structural editing
+                const state = {
+                    rawTemplate: content,
+                    structureId: initialStructure?.id,
+                    structureTitle: title,
+                    variables: variables || {},
+                    slotValues: slotValues || {},
+                    tierStyles: tierStyles || ['decimal', 'lower-alpha', 'lower-roman'],
+                    continuousNumbering: continuousNumbering !== undefined ? continuousNumbering : true
+                };
+                const jsonState = JSON.stringify(state);
+                await pb.collection('documents').update(activeDocumentId, {
+                    description: jsonState,
+                    state: jsonState
+                });
+                return;
+            }
+
             const data = {
                 title,
                 content,
