@@ -62,7 +62,8 @@ const StructureEditor = ({ pb, initialStructure, snippets, onUpdateSnippets, onS
             };
 
             if (initialStructure?.id) {
-                await pb.collection('templates').update(initialStructure.id, data);
+                const rec = await pb.collection('templates').update(initialStructure.id, data);
+                onSave && onSave(rec);
             } else {
                 const rec = await pb.collection('templates').create(data);
                 onSave && onSave(rec); // Update parent if it was new
