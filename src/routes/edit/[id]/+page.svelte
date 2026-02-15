@@ -44,6 +44,12 @@
     let loading = $state(true);
     let saveStatus = $state("idle"); // idle, saving, saved, error
     let saveTimeout = null;
+    let selectedSlotId = $state(null);
+    let selectedCategory = $derived(() => {
+        if (!selectedSlotId) return null;
+        const slot = parsedTemplate().find((s) => s.id === selectedSlotId);
+        return slot ? slot.category : null;
+    });
 
     onMount(async () => {
         const id = $page.params.id;
@@ -337,7 +343,13 @@
                 ...prev,
                 [item.id]: { ...snippet },
             }));
+            // After dropping, clear selection or keep it?
+            // Let's keep it so user can swap easily.
         }
+    }
+
+    function selectSlot(id) {
+        selectedSlotId = id;
     }
 </script>
 
@@ -441,6 +453,32 @@
                         >
                             Provisions Library
                         </h2>
+                        {#if selectedCategory()}
+                            <div
+                                class="flex items-center gap-2 mb-3 bg-indigo-50 px-3 py-2 rounded-lg border border-indigo-100"
+                            >
+                                <Icon
+                                    name="Filter"
+                                    size={12}
+                                    class="text-indigo-600"
+                                />
+                                <span
+                                    class="text-[10px] font-black text-indigo-700 uppercase tracking-wider"
+                                    >{selectedCategory()}</span
+                                >
+                                <button
+                                    onclick={() => (selectedSlotId = null)}
+                                    class="ml-auto p-1 hover:bg-indigo-100 rounded transition-colors border-none bg-transparent cursor-pointer"
+                                    title="Show all categories"
+                                >
+                                    <Icon
+                                        name="X"
+                                        size={10}
+                                        class="text-indigo-400"
+                                    />
+                                </button>
+                            </div>
+                        {/if}
                         <input
                             type="text"
                             bind:value={searchTerm}
@@ -451,29 +489,45 @@
                     <div
                         class="flex-1 overflow-y-auto p-4 space-y-2 custom-scrollbar"
                     >
-                        {#each activeCategories() as cat}
-                            <div class="mb-4">
-                                <h3
-                                    class="text-[9px] font-black text-slate-300 uppercase mb-2"
+                        {#if !selectedCategory() && $snippets.length > 0}
+                            <div class="text-center py-12 px-6">
+                                <div
+                                    class="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-200"
                                 >
-                                    {cat}
-                                </h3>
-                                <div class="space-y-2">
-                                    {#each $snippets.filter((s) => s.category === cat && (!searchTerm || s.title
-                                                    .toLowerCase()
-                                                    .includes(searchTerm.toLowerCase()))) as snippet}
-                                        <div
-                                            draggable="true"
-                                            ondragstart={(e) =>
-                                                onDragStart(e, snippet)}
-                                            class="bg-white border border-slate-200 rounded-lg p-3 hover:border-indigo-400 hover:shadow-md cursor-grab text-[11px] font-bold text-slate-700 transition-all"
-                                        >
-                                            {snippet.title}
-                                        </div>
-                                    {/each}
+                                    <Icon name="MousePointer2" size={24} />
                                 </div>
+                                <p
+                                    class="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-loose"
+                                >
+                                    Select a slot in the document to see
+                                    relevant provisions
+                                </p>
                             </div>
-                        {/each}
+                        {:else}
+                            {#each activeCategories().filter((cat) => !selectedCategory() || cat === selectedCategory()) as cat}
+                                <div class="mb-4">
+                                    <h3
+                                        class="text-[9px] font-black text-slate-300 uppercase mb-2"
+                                    >
+                                        {cat}
+                                    </h3>
+                                    <div class="space-y-2">
+                                        {#each $snippets.filter((s) => s.category === cat && (!searchTerm || s.title
+                                                        .toLowerCase()
+                                                        .includes(searchTerm.toLowerCase()))) as snippet}
+                                            <div
+                                                draggable="true"
+                                                ondragstart={(e) =>
+                                                    onDragStart(e, snippet)}
+                                                class="bg-white border border-slate-200 rounded-lg p-3 hover:border-indigo-400 hover:shadow-md cursor-grab text-[11px] font-bold text-slate-700 transition-all"
+                                            >
+                                                {snippet.title}
+                                            </div>
+                                        {/each}
+                                    </div>
+                                </div>
+                            {/each}
+                        {/if}
                     </div>
                 </aside>
             {/if}
@@ -498,13 +552,19 @@
                                 />
                             {:else}
                                 <div
+                                    role="button"
+                                    tabindex="0"
+                                    onclick={() => selectSlot(item.id)}
+                                    onkeydown={(e) =>
+                                        e.key === "Enter" &&
+                                        selectSlot(item.id)}
                                     ondragover={(e) => {
                                         e.preventDefault();
                                         dragOverSlotId = item.id;
                                     }}
                                     ondragleave={() => (dragOverSlotId = null)}
                                     ondrop={(e) => onDrop(e, item)}
-                                    class={`relative min-h-[40px] rounded-2xl transition-all border-2 flex flex-col items-center justify-center mb-4 cursor-pointer ${item.value ? "border-transparent bg-indigo-50/30 border-indigo-100" : "border-dashed border-slate-200 bg-slate-50/50"} ${dragOverSlotId === item.id ? "ring-2 ring-indigo-500" : ""}`}
+                                    class={`relative min-h-[40px] rounded-2xl transition-all border-2 flex flex-col items-center justify-center mb-4 cursor-pointer ${item.value ? (selectedSlotId === item.id ? "bg-indigo-50 border-indigo-200 shadow-sm" : "border-transparent bg-indigo-50/30") : selectedSlotId === item.id ? "border-indigo-300 bg-indigo-50/50" : "border-dashed border-slate-200 bg-slate-50/50"} ${dragOverSlotId === item.id ? "ring-2 ring-indigo-500" : ""}`}
                                 >
                                     {#if !item.value}
                                         <div
