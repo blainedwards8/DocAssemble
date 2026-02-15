@@ -55,34 +55,49 @@
 
     async function loadDocument(id) {
         try {
-            const doc = await pb.collection("documents").getOne(id);
-            const stateData = doc.state || doc.description;
-            if (
-                stateData &&
-                (stateData.startsWith("{") || stateData.startsWith("["))
-            ) {
-                const state = JSON.parse(stateData);
-                rawTemplate.set(state.rawTemplate || "");
-                structureTitle.set(state.structureTitle || doc.title);
-                structureId.set(state.structureId || null);
-                variables.set(state.variables || {});
-                slotValues.set(state.slotValues || {});
-                tierStyles.set(
-                    state.tierStyles || [
-                        "decimal",
-                        "lower-alpha",
-                        "lower-roman",
-                    ],
-                );
-                continuousNumbering.set(
-                    state.continuousNumbering !== undefined
-                        ? state.continuousNumbering
-                        : true,
-                );
-                variableConfigs.set(state.variableConfigs || {});
-                activeDocumentId.set(doc.id);
-                viewMode.set("assemble");
+            const doc = await pb
+                .collection("documents")
+                .getOne(id, { expand: "matter" });
+
+            if (doc.expand?.matter) {
+                activeMatter.set(doc.expand.matter);
             }
+
+            let stateData = doc.state || doc.description;
+            if (stateData) {
+                let state;
+                if (
+                    typeof stateData === "string" &&
+                    (stateData.startsWith("{") || stateData.startsWith("["))
+                ) {
+                    state = JSON.parse(stateData);
+                } else if (typeof stateData === "object") {
+                    state = stateData;
+                }
+
+                if (state) {
+                    rawTemplate.set(state.rawTemplate || "");
+                    structureTitle.set(state.structureTitle || doc.title);
+                    structureId.set(state.structureId || null);
+                    variables.set(state.variables || {});
+                    slotValues.set(state.slotValues || {});
+                    tierStyles.set(
+                        state.tierStyles || [
+                            "decimal",
+                            "lower-alpha",
+                            "lower-roman",
+                        ],
+                    );
+                    continuousNumbering.set(
+                        state.continuousNumbering !== undefined
+                            ? state.continuousNumbering
+                            : true,
+                    );
+                    variableConfigs.set(state.variableConfigs || {});
+                }
+            }
+            activeDocumentId.set(doc.id);
+            viewMode.set("assemble");
         } catch (err) {
             console.error("Failed to load document", err);
         }
@@ -225,6 +240,21 @@
         editingVariable = null;
     }
 
+    $effect(() => {
+        if ($activeDocumentId && !loading) {
+            // Force tracking of all relevant stores
+            const _ = {
+                t: $rawTemplate,
+                v: $variables,
+                s: $slotValues,
+                ts: $tierStyles,
+                cn: $continuousNumbering,
+                vc: $variableConfigs,
+            };
+            triggerAutosave();
+        }
+    });
+
     async function handleExport(format) {
         let blob;
         const filename = `${$structureTitle || "Document"}_${Date.now()}`;
@@ -260,7 +290,11 @@
     }
 
     async function saveToCloud(isAutosave = false) {
-        if (!$activeMatter) return;
+        if (!$activeMatter || !$activeDocumentId) {
+            console.warn("Missing matter or document ID, skipping cloud save");
+            return false;
+        }
+
         try {
             const state = {
                 rawTemplate: $rawTemplate,
@@ -272,20 +306,20 @@
                 continuousNumbering: $continuousNumbering,
                 variableConfigs: $variableConfigs,
             };
-            const formData = new FormData();
-            formData.append("matter", $activeMatter.id);
-            formData.append("state", JSON.stringify(state));
-            formData.append("description", JSON.stringify(state));
 
-            if ($activeDocumentId) {
-                await pb
-                    .collection("documents")
-                    .update($activeDocumentId, formData);
-                if (!isAutosave) alert("Saved!");
-            }
+            const payload = {
+                matter: $activeMatter.id,
+                state: JSON.stringify(state),
+                description: JSON.stringify(state),
+            };
+
+            await pb.collection("documents").update($activeDocumentId, payload);
+            if (!isAutosave) alert("Saved!");
+            return true;
         } catch (e) {
-            console.error(e);
+            console.error("Cloud save failed:", e);
             if (isAutosave) throw e;
+            return false;
         }
     }
 
