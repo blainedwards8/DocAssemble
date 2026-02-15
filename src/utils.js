@@ -17,14 +17,23 @@ export const resolveVariables = (text, variables, isCopying = false, pathPrefix 
     });
 
     // 2. Process Variables
-    return processedText.replace(/\{([a-zA-Z0-9_-]+)\}/g, (match, name) => {
+    const varRegex = /\{([a-zA-Z0-9_-]+)(?:\|([a-zA-Z0-9_-]+))?(?:\[(.*?)\])?\}/g;
+    return processedText.replace(varRegex, (match, name, type, options) => {
         const isFilled = variables[name] !== undefined && variables[name] !== "";
-        const displayValue = isFilled ? variables[name] : match;
-        const copyValue = isFilled ? variables[name] : match;
+        // For display, if not filled, we show the {name} part but strip the metadata if it's too long?
+        // Actually, user expects to see the placeholder. Let's show the "clean" placeholder if not filled?
+        // Usually, seeing the type info in the document might be confusing. 
+        // Let's show {name} as the placeholder.
+        const placeholder = `{${name}}`;
+        const displayValue = isFilled ? variables[name] : placeholder;
+        const copyValue = isFilled ? variables[name] : placeholder;
 
         if (isCopying) return copyValue;
 
         const fullPath = pathPrefix ? `${pathPrefix}.${name}` : name;
+
+        // Encode metadata into data attribute if needed, or just the name. 
+        // App.jsx will use variableConfigs which we will auto-supplement.
 
         // Add Data Attribute for Click Handler
         return isFilled
@@ -160,9 +169,10 @@ export const setNestedValue = (obj, path, value) => {
 
 // --- 5. Metadata Extraction ---
 export const extractStructureMetadata = (markdown) => {
-    if (!markdown) return { variables: [], sections: [], loops: [] };
+    if (!markdown) return { variables: [], sections: [], loops: [], variableMeta: {} };
 
     const variables = new Set();
+    const variableMeta = {};
     const sections = [];
     const loops = new Set();
 
@@ -186,17 +196,26 @@ export const extractStructureMetadata = (markdown) => {
         }
     });
 
-    // 3. Variables ({var_name}) - everywhere in text
-    const varMatches = markdown.matchAll(/\{([a-zA-Z0-9_-]+)\}/g);
+    // 3. Variables ({var_name}, {var|date}, {var[Opt1,Opt2]}) - everywhere in text
+    const varRegex = /\{([a-zA-Z0-9_-]+)(?:\|([a-zA-Z0-9_-]+))?(?:\[(.*?)\])?\}/g;
+    const varMatches = markdown.matchAll(varRegex);
     for (const match of varMatches) {
-        // Filter out loop-related markers if necessary (though regex matches only word chars)
-        // If it starts with # it's a loop start, handled above or by filtering.
-        // Actually, the regex {([a-zA-Z0-9_]+)} won't match {#foreach}.
-        variables.add(match[1]);
+        const name = match[1];
+        const type = match[2];
+        const optionsStr = match[3];
+
+        variables.add(name);
+        if (type || optionsStr) {
+            variableMeta[name] = {
+                type: type || (optionsStr ? 'select' : 'text'),
+                options: optionsStr ? optionsStr.split(',').map(o => o.trim()) : undefined
+            };
+        }
     }
 
     return {
         variables: Array.from(variables).sort(),
+        variableMeta,
         sections,
         loops: Array.from(loops).sort()
     };

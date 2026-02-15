@@ -40,6 +40,7 @@ function App() {
   const [tierStyles, setTierStyles] = useState(initialData.tierStyles || ['decimal', 'lower-alpha', 'lower-roman']);
   const [slotValues, setSlotValues] = useState(initialData.slotValues || {});
   const [disabledSlots, setDisabledSlots] = useState(new Set(initialData.disabledSlots || []));
+  const [variableConfigs, setVariableConfigs] = useState(initialData.variableConfigs || {});
   const [lastSaved, setLastSaved] = useState(null);
 
   const [activeTab, setActiveTab] = useState(null);
@@ -86,6 +87,7 @@ function App() {
               category: t.category,
               title: t.title,
               content: t.content,
+              state: t.state || t.description,
               tag: Array.isArray(t.tags) ? (t.tags[0] || '') : (t.tags || '')
             }));
 
@@ -174,6 +176,7 @@ function App() {
 
   const detectedVariables = useMemo(() => {
     const simpleVars = new Set();
+    const variableMeta = {};
     const loops = new Map();
     const scan = (text) => {
       if (!text) return;
@@ -183,20 +186,61 @@ function App() {
         const key = match[1];
         const subContent = match[2];
         if (!loops.has(key)) loops.set(key, new Set());
-        const subMatchRegex = /\{([a-zA-Z0-9_-]+)\}/g;
+        const subMatchRegex = /\{([a-zA-Z0-9_-]+)(?:\|([a-zA-Z0-9_-]+))?(?:\[(.*?)\])?\}/g;
         let subMatch;
-        while ((subMatch = subMatchRegex.exec(subContent)) !== null) loops.get(key).add(subMatch[1]);
+        while ((subMatch = subMatchRegex.exec(subContent)) !== null) {
+          const vName = subMatch[1];
+          const vType = subMatch[2];
+          const vOpts = subMatch[3];
+          loops.get(key).add(vName);
+          if (vType || vOpts) {
+            variableMeta[vName] = {
+              type: vType || (vOpts ? 'select' : 'text'),
+              options: vOpts ? vOpts.split(',').map(o => o.trim()) : undefined
+            };
+          }
+        }
       }
       const cleanText = text.replace(loopRegex, "");
-      const varRegex = /\{([a-zA-Z0-9_-]+)\}/g;
-      while ((match = varRegex.exec(cleanText)) !== null) simpleVars.add(match[1]);
+      const varRegex = /\{([a-zA-Z0-9_-]+)(?:\|([a-zA-Z0-9_-]+))?(?:\[(.*?)\])?\}/g;
+      while ((match = varRegex.exec(cleanText)) !== null) {
+        const vName = match[1];
+        const vType = match[2];
+        const vOpts = match[3];
+        simpleVars.add(vName);
+        if (vType || vOpts) {
+          variableMeta[vName] = {
+            type: vType || (vOpts ? 'select' : 'text'),
+            options: vOpts ? vOpts.split(',').map(o => o.trim()) : undefined
+          };
+        }
+      }
     };
     parsedTemplate.forEach(item => { scan(item.content); if (item.value) scan(item.value.content); });
     return {
       simple: Array.from(simpleVars).sort(),
+      variableMeta,
       loops: Array.from(loops.entries()).map(([name, fields]) => ({ name, fields: Array.from(fields).sort() }))
     };
   }, [parsedTemplate]);
+
+  // Auto-sync variable configs from template metadata
+  useEffect(() => {
+    if (Object.keys(detectedVariables.variableMeta).length > 0) {
+      setVariableConfigs(prev => {
+        const next = { ...prev };
+        let changed = false;
+        Object.entries(detectedVariables.variableMeta).forEach(([name, meta]) => {
+          // Only update if current config is missing or different
+          if (!next[name] || next[name].type !== meta.type || JSON.stringify(next[name].options) !== JSON.stringify(meta.options)) {
+            next[name] = meta;
+            changed = true;
+          }
+        });
+        return changed ? next : prev;
+      });
+    }
+  }, [detectedVariables.variableMeta]);
 
   // --- Handlers ---
   const addRowToList = (listName) => {
@@ -290,11 +334,11 @@ function App() {
   // Note: Loading is handled during state initialization
 
   useEffect(() => {
-    const state = { rawTemplate, snippets, variables, tierStyles, continuousNumbering, slotValues, disabledSlots: Array.from(disabledSlots) };
+    const state = { rawTemplate, snippets, variables, tierStyles, continuousNumbering, slotValues, disabledSlots: Array.from(disabledSlots), variableConfigs };
     localStorage.setItem('DOCASSEMBLE_AUTOSAVE_V1', JSON.stringify(state));
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setLastSaved(new Date());
-  }, [rawTemplate, snippets, variables, tierStyles, continuousNumbering, slotValues, disabledSlots]);
+  }, [rawTemplate, snippets, variables, tierStyles, continuousNumbering, slotValues, disabledSlots, variableConfigs]);
 
   const resetProject = () => {
     if (confirm("Are you sure you want to reset the project to defaults? This will clear your autosave.")) {
@@ -417,7 +461,8 @@ function App() {
         variables,
         slotValues,
         tierStyles,
-        continuousNumbering
+        continuousNumbering,
+        variableConfigs
       };
 
       // formData
@@ -546,7 +591,16 @@ function App() {
       setViewMode('assemble');
       setSlotValues({});
       setVariables({});
-      // Keeping existing library is correct as they are global templates.
+
+      // Load variable configs from template if available
+      let configs = {};
+      if (structure.state && (structure.state.startsWith('{') || structure.state.startsWith('['))) {
+        try {
+          const state = JSON.parse(structure.state);
+          configs = state.variableConfigs || {};
+        } catch (e) { console.error("Failed to parse structure state", e); }
+      }
+      setVariableConfigs(configs);
     }
   };
 
@@ -610,14 +664,54 @@ function App() {
       setSlotValues(state.slotValues || {});
       setTierStyles(state.tierStyles || ['decimal', 'lower-alpha', 'lower-roman']);
       setContinuousNumbering(state.continuousNumbering !== undefined ? state.continuousNumbering : true);
+      setVariableConfigs(state.variableConfigs || {});
 
       setActiveDocumentId(doc.id);
       setPostLoadAction(action);
       setViewMode('assemble');
     } catch (err) {
       console.error("Failed to load document state:", err);
-      alert("Failed to load document for editing.");
     }
+  };
+
+  const renderVariableInput = (v, value, onChange, className = "") => {
+    const config = variableConfigs[v] || { type: 'text' };
+
+    if (config.type === 'date') {
+      return (
+        <input
+          type="date"
+          value={value || ""}
+          onChange={onChange}
+          className={`w-full px-4 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none ${className}`}
+        />
+      );
+    }
+
+    if (config.type === 'select' && config.options) {
+      return (
+        <select
+          value={value || ""}
+          onChange={onChange}
+          className={`w-full px-4 py-2 border border-slate-200 rounded-xl text-sm bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none ${className}`}
+        >
+          <option value="">Select...</option>
+          {config.options.map(opt => (
+            <option key={opt} value={opt}>{opt}</option>
+          ))}
+        </select>
+      );
+    }
+
+    return (
+      <input
+        type="text"
+        value={value || ""}
+        onChange={onChange}
+        className={`w-full px-4 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none ${className}`}
+        placeholder="Value..."
+      />
+    );
   };
 
   // Effect to handle post-load actions (exports, copy)
@@ -726,6 +820,8 @@ function App() {
             initialStructure={activeDocumentId ? { id: structureId, title: structureTitle, content: rawTemplate } : editingStructure}
             snippets={snippets}
             onUpdateSnippets={(newSnippets) => setSnippets(newSnippets)}
+            variableConfigs={variableConfigs}
+            onUpdateVariableConfigs={setVariableConfigs}
             onBack={() => {
               if (activeDocumentId) setViewMode('assemble');
               else setViewMode('structures-dashboard');
@@ -740,10 +836,6 @@ function App() {
               }
               setEditingStructure(newRec);
             }}
-            activeDocumentId={activeDocumentId}
-            variables={variables}
-            slotValues={slotValues}
-            tierStyles={tierStyles}
             continuousNumbering={continuousNumbering}
             onContentChange={setRawTemplate}
             onTitleChange={setStructureTitle}
@@ -968,7 +1060,7 @@ function App() {
                         {detectedVariables.simple.map(v => (
                           <div key={v} className="space-y-1">
                             <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{v.replace(/_/g, ' ')}</label>
-                            <input type="text" value={variables[v] || ""} onChange={(e) => setVariables({ ...variables, [v]: e.target.value })} className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm" placeholder="Value..." />
+                            {renderVariableInput(v, variables[v], (e) => setVariables({ ...variables, [v]: e.target.value }))}
                           </div>
                         ))}
                       </div>
@@ -987,10 +1079,12 @@ function App() {
                           </tr></thead>
                           <tbody className="bg-white">
                             {(variables[loop.name] || []).map((row, rIdx) => (
-                              <tr key={rIdx} className="border-t border-slate-100">
+                              <tr key={rIdx} className="border-b border-slate-50 last:border-0 hover:bg-slate-50/30 transition-colors">
                                 <td className="px-4 py-2 text-[10px] font-black text-slate-300 text-center">{rIdx + 1}</td>
                                 {loop.fields.map(f => (
-                                  <td key={f} className="px-2 py-1.5"><input type="text" value={row[f] || ""} onChange={(e) => updateListVariable(loop.name, rIdx, f, e.target.value)} className="w-full px-2 py-1 bg-transparent text-sm border-b border-transparent focus:border-indigo-200" /></td>
+                                  <td key={f} className="px-4 py-2">
+                                    {renderVariableInput(f, row[f], (e) => updateListVariable(loop.name, rIdx, f, e.target.value), "bg-transparent border-slate-100 hover:border-slate-300 focus:bg-white")}
+                                  </td>
                                 ))}
                                 <td className="px-4 py-2 text-center"><button onClick={() => removeRowFromList(loop.name, rIdx)} className="text-slate-300 hover:text-red-500"><Icon name="Trash2" size={14} /></button></td>
                               </tr>
@@ -1047,7 +1141,53 @@ function App() {
       {/* Inline Variable Editor */}
       {editingVariable && (
         <div style={{ position: 'fixed', top: editingVariable.rect.top, left: editingVariable.rect.left, width: Math.max(editingVariable.rect.width + 20, 120), zIndex: 100 }}>
-          <input autoFocus className="w-full px-2 py-0.5 rounded font-bold border-2 border-indigo-500 font-mono text-[0.85em] bg-white shadow-xl outline-none text-indigo-700" value={editingVariable.value} onChange={(e) => setEditingVariable({ ...editingVariable, value: e.target.value })} onBlur={saveVariableEdit} onKeyDown={(e) => e.key === 'Enter' && e.target.blur()} />
+          {(() => {
+            const baseName = editingVariable.path.split('.').pop().replace(/\[\d+\]$/, "");
+            const config = variableConfigs[baseName] || { type: 'text' };
+
+            if (config.type === 'date') {
+              return (
+                <input
+                  autoFocus
+                  type="date"
+                  className="w-full h-8 px-2 py-0.5 rounded font-bold border-2 border-indigo-500 font-mono text-[0.85em] bg-white shadow-xl outline-none text-indigo-700"
+                  value={editingVariable.value}
+                  onChange={(e) => setEditingVariable({ ...editingVariable, value: e.target.value })}
+                  onBlur={saveVariableEdit}
+                  onKeyDown={(e) => e.key === 'Enter' && e.target.blur()}
+                />
+              );
+            }
+
+            if (config.type === 'select' && config.options) {
+              return (
+                <select
+                  autoFocus
+                  className="w-full h-8 px-2 py-0.5 rounded font-bold border-2 border-indigo-500 font-mono text-[0.85em] bg-white shadow-xl outline-none text-indigo-700"
+                  value={editingVariable.value}
+                  onChange={(e) => setEditingVariable({ ...editingVariable, value: e.target.value })}
+                  onBlur={saveVariableEdit}
+                  onKeyDown={(e) => e.key === 'Enter' && e.target.blur()}
+                >
+                  <option value="">Select...</option>
+                  {config.options.map(opt => (
+                    <option key={opt} value={opt}>{opt}</option>
+                  ))}
+                </select>
+              );
+            }
+
+            return (
+              <input
+                autoFocus
+                className="w-full px-2 py-0.5 rounded font-bold border-2 border-indigo-500 font-mono text-[0.85em] bg-white shadow-xl outline-none text-indigo-700"
+                value={editingVariable.value}
+                onChange={(e) => setEditingVariable({ ...editingVariable, value: e.target.value })}
+                onBlur={saveVariableEdit}
+                onKeyDown={(e) => e.key === 'Enter' && e.target.blur()}
+              />
+            );
+          })()}
         </div>
       )}
     </div>

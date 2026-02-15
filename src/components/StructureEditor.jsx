@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import Icon from './Icon';
 import { extractStructureMetadata } from '../utils';
 
-const StructureEditor = ({ pb, initialStructure, snippets, onUpdateSnippets, onSave, onBack, activeDocumentId, variables, slotValues, tierStyles, continuousNumbering, onContentChange, onTitleChange }) => {
+const StructureEditor = ({ pb, initialStructure, snippets, onUpdateSnippets, onSave, onBack, activeDocumentId, variables, slotValues, tierStyles, continuousNumbering, onContentChange, onTitleChange, variableConfigs = {}, onUpdateVariableConfigs }) => {
     const [title, setTitle] = useState(initialStructure?.title || 'New Structure');
     const [content, setContent] = useState(initialStructure?.content || '');
     const [isSaving, setIsSaving] = useState(false);
@@ -11,6 +11,7 @@ const StructureEditor = ({ pb, initialStructure, snippets, onUpdateSnippets, onS
     const [isProvisionModalOpen, setIsProvisionModalOpen] = useState(false);
     const [editingProvision, setEditingProvision] = useState(null);
     const [provisionSearch, setProvisionSearch] = useState('');
+    const [configuringVariable, setConfiguringVariable] = useState(null); // String name
 
     const metadata = useMemo(() => extractStructureMetadata(content), [content]);
 
@@ -45,7 +46,8 @@ const StructureEditor = ({ pb, initialStructure, snippets, onUpdateSnippets, onS
                     variables: variables || {},
                     slotValues: slotValues || {},
                     tierStyles: tierStyles || ['decimal', 'lower-alpha', 'lower-roman'],
-                    continuousNumbering: continuousNumbering !== undefined ? continuousNumbering : true
+                    continuousNumbering: continuousNumbering !== undefined ? continuousNumbering : true,
+                    variableConfigs
                 };
                 const jsonState = JSON.stringify(state);
                 await pb.collection('documents').update(activeDocumentId, {
@@ -63,10 +65,13 @@ const StructureEditor = ({ pb, initialStructure, snippets, onUpdateSnippets, onS
             };
 
             if (initialStructure?.id) {
-                const rec = await pb.collection('templates').update(initialStructure.id, data);
+                // Also update config if it's a template
+                const templateData = { ...data, state: JSON.stringify({ variableConfigs }) };
+                const rec = await pb.collection('templates').update(initialStructure.id, templateData);
                 onSave && onSave(rec);
             } else {
-                const rec = await pb.collection('templates').create(data);
+                const templateData = { ...data, state: JSON.stringify({ variableConfigs }) };
+                const rec = await pb.collection('templates').create(templateData);
                 onSave && onSave(rec); // Update parent if it was new
             }
         } catch (err) {
@@ -239,11 +244,26 @@ Normal # Markdown Headers are supported."
                             </div>
                             <div className="flex flex-wrap gap-2">
                                 {metadata.variables.length > 0 ? (
-                                    metadata.variables.map((v, i) => (
-                                        <span key={i} className="text-[10px] font-black px-2 py-1 bg-white border border-slate-200 text-emerald-600 rounded-md shadow-sm">
-                                            {v}
-                                        </span>
-                                    ))
+                                    metadata.variables.map((v, i) => {
+                                        const config = variableConfigs[v] || { type: 'text' };
+                                        return (
+                                            <button
+                                                key={i}
+                                                onClick={() => setConfiguringVariable(v)}
+                                                className={`text-[10px] font-black px-2 py-1 bg-white border rounded-md shadow-sm transition-all flex items-center gap-1.5 group
+                                                    ${config.type === 'text' ? 'border-slate-200 text-emerald-600 hover:border-emerald-300' :
+                                                        config.type === 'date' ? 'border-indigo-200 text-indigo-600 hover:border-indigo-400' :
+                                                            'border-amber-200 text-amber-600 hover:border-amber-400'}`}
+                                            >
+                                                <div className="flex items-center gap-1">
+                                                    {config.type === 'date' && <Icon name="Calendar" size={10} />}
+                                                    {config.type === 'select' && <Icon name="List" size={10} />}
+                                                    {v}
+                                                </div>
+                                                <Icon name="Settings" size={10} className="opacity-0 group-hover:opacity-100 transition-opacity" />
+                                            </button>
+                                        );
+                                    })
                                 ) : (
                                     <div className="text-[10px] italic text-slate-300 w-full">No variables found</div>
                                 )}
@@ -450,6 +470,69 @@ Normal # Markdown Headers are supported."
                         </div>
                         <footer className="p-6 bg-slate-50 border-t border-slate-100 text-center">
                             <button onClick={() => setIsCheatSheetOpen(false)} className="px-8 py-3 bg-white border border-slate-200 hover:bg-slate-100 text-slate-800 rounded-xl text-xs font-black uppercase tracking-widest transition-all">Got it</button>
+                        </footer>
+                    </div>
+                </div>
+            )}
+            {/* Variable Configuration Modal */}
+            {configuringVariable && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[110] p-6 animate-in fade-in duration-200">
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
+                        <header className="px-8 py-6 border-b border-slate-100 flex justify-between items-center bg-indigo-50/30">
+                            <div>
+                                <h2 className="text-lg font-black text-slate-800 tracking-tight">Configure Variable</h2>
+                                <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest mt-1">{"{"}{configuringVariable}{"}"}</p>
+                            </div>
+                            <button onClick={() => setConfiguringVariable(null)} className="p-2 hover:bg-slate-200/50 rounded-xl transition-all">
+                                <Icon name="X" />
+                            </button>
+                        </header>
+                        <div className="p-8 space-y-6">
+                            <div className="space-y-4">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Input Type</label>
+                                <div className="grid grid-cols-3 gap-2">
+                                    {['text', 'date', 'select'].map(type => (
+                                        <button
+                                            key={type}
+                                            type="button"
+                                            onClick={() => onUpdateVariableConfigs({
+                                                ...variableConfigs,
+                                                [configuringVariable]: { ...variableConfigs[configuringVariable], type }
+                                            })}
+                                            className={`py-3 rounded-xl border-2 text-[10px] font-black uppercase tracking-widest transition-all
+                                                ${(variableConfigs[configuringVariable]?.type || 'text') === type
+                                                    ? 'bg-indigo-600 border-indigo-700 text-white shadow-md'
+                                                    : 'bg-white border-slate-100 text-slate-400 hover:border-indigo-100 hover:text-indigo-400'}`}
+                                        >
+                                            {type}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {variableConfigs[configuringVariable]?.type === 'select' && (
+                                <div className="space-y-3 animate-in slide-in-from-top-2">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Options (One per line)</label>
+                                    <textarea
+                                        rows={4}
+                                        value={variableConfigs[configuringVariable]?.options?.join('\n') || ''}
+                                        onChange={e => onUpdateVariableConfigs({
+                                            ...variableConfigs,
+                                            [configuringVariable]: {
+                                                ...variableConfigs[configuringVariable],
+                                                options: e.target.value.split('\n').filter(o => o.trim())
+                                            }
+                                        })}
+                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-700 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all placeholder:text-slate-300"
+                                        placeholder="Option 1&#10;Option 2&#10;Option 3"
+                                    />
+                                </div>
+                            )}
+                        </div>
+                        <footer className="p-6 bg-slate-50 border-t border-slate-100 flex justify-end">
+                            <button onClick={() => setConfiguringVariable(null)} className="px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-indigo-100 transition-all">
+                                Done
+                            </button>
                         </footer>
                     </div>
                 </div>
