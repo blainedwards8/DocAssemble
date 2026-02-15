@@ -1,0 +1,161 @@
+{
+  ".svelte-kit/generated/client-optimized/app.js": {
+    "file": "_app/immutable/entry/app.DD2mu0iV.js",
+    "name": "entry/app",
+    "src": ".svelte-kit/generated/client-optimized/app.js",
+    "isEntry": true,
+    "imports": [
+      "_CSkNVMkD.js",
+      "_HBH5zySG.js",
+      "_DjeyT1BH.js",
+      "_Bu_MZV1c.js",
+      "_DLOMqRYO.js"
+    ],
+    "dynamicImports": [
+      ".svelte-kit/generated/client-optimized/nodes/0.js",
+      ".svelte-kit/generated/client-optimized/nodes/1.js",
+      ".svelte-kit/generated/client-optimized/nodes/2.js"
+    ]
+  },
+  ".svelte-kit/generated/client-optimized/nodes/0.js": {
+    "file": "_app/immutable/nodes/0.QuaPutrg.js",
+    "name": "nodes/0",
+    "src": ".svelte-kit/generated/client-optimized/nodes/0.js",
+    "isEntry": true,
+    "isDynamicEntry": true,
+    "imports": [
+      "_Bu_MZV1c.js",
+      "_HBH5zySG.js",
+      "_Dm8n4ajY.js"
+    ]
+  },
+  ".svelte-kit/generated/client-optimized/nodes/1.js": {
+    "file": "_app/immutable/nodes/1.D3iePv9f.js",
+    "name": "nodes/1",
+    "src": ".svelte-kit/generated/client-optimized/nodes/1.js",
+    "isEntry": true,
+    "isDynamicEntry": true,
+    "imports": [
+      "_Bu_MZV1c.js",
+      "_BSbl-mLD.js",
+      "_HBH5zySG.js",
+      "_DjeyT1BH.js",
+      "_nikc7uf4.js"
+    ]
+  },
+  ".svelte-kit/generated/client-optimized/nodes/2.js": {
+    "file": "_app/immutable/nodes/2.j0vS-njX.js",
+    "name": "nodes/2",
+    "src": ".svelte-kit/generated/client-optimized/nodes/2.js",
+    "isEntry": true,
+    "imports": [
+      "_DOY9vDGr.js"
+    ]
+  },
+  "_BSbl-mLD.js": {
+    "file": "_app/immutable/chunks/BSbl-mLD.js",
+    "name": "legacy",
+    "imports": [
+      "_HBH5zySG.js"
+    ]
+  },
+  "_Bu_MZV1c.js": {
+    "file": "_app/immutable/chunks/Bu_MZV1c.js",
+    "name": "disclose-version",
+    "imports": [
+      "_HBH5zySG.js"
+    ]
+  },
+  "_CSkNVMkD.js": {
+    "file": "_app/immutable/chunks/CSkNVMkD.js",
+    "name": "preload-helper",
+    "imports": [
+      "_HBH5zySG.js",
+      "_Dm8n4ajY.js",
+      "_DLOMqRYO.js"
+    ]
+  },
+  "_DLOMqRYO.js": {
+    "file": "_app/immutable/chunks/DLOMqRYO.js",
+    "name": "index-client",
+    "imports": [
+      "_HBH5zySG.js"
+    ]
+  },
+  "_DOY9vDGr.js": {
+    "file": "_app/immutable/chunks/DOY9vDGr.js",
+    "name": "2",
+    "isDynamicEntry": true,
+    "imports": [
+      "_Bu_MZV1c.js",
+      "_DLOMqRYO.js",
+      "_HBH5zySG.js",
+      "_DjeyT1BH.js",
+      "_CSkNVMkD.js",
+      "_BSbl-mLD.js",
+      "_Dm8n4ajY.js"
+    ],
+    "dynamicImports": [
+      "node_modules/html2canvas/dist/html2canvas.esm.js",
+      "node_modules/dompurify/dist/purify.es.mjs",
+      "node_modules/canvg/lib/index.es.js"
+    ]
+  },
+  "_DjeyT1BH.js": {
+    "file": "_app/immutable/chunks/DjeyT1BH.js",
+    "name": "render",
+    "imports": [
+      "_HBH5zySG.js",
+      "_Bu_MZV1c.js"
+    ]
+  },
+  "_Dm8n4ajY.js": {
+    "file": "_app/immutable/chunks/Dm8n4ajY.js",
+    "name": "branches",
+    "imports": [
+      "_HBH5zySG.js"
+    ]
+  },
+  "_HBH5zySG.js": {
+    "file": "_app/immutable/chunks/HBH5zySG.js",
+    "name": "runtime"
+  },
+  "_nikc7uf4.js": {
+    "file": "_app/immutable/chunks/nikc7uf4.js",
+    "name": "entry",
+    "imports": [
+      "_HBH5zySG.js",
+      "_DLOMqRYO.js"
+    ]
+  },
+  "node_modules/@sveltejs/kit/src/runtime/client/entry.js": {
+    "file": "_app/immutable/entry/start.DK8l2vfW.js",
+    "name": "entry/start",
+    "src": "node_modules/@sveltejs/kit/src/runtime/client/entry.js",
+    "isEntry": true,
+    "imports": [
+      "_nikc7uf4.js"
+    ]
+  },
+  "node_modules/canvg/lib/index.es.js": {
+    "file": "_app/immutable/chunks/DC2V5PvD.js",
+    "name": "index.es",
+    "src": "node_modules/canvg/lib/index.es.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "_DOY9vDGr.js"
+    ]
+  },
+  "node_modules/dompurify/dist/purify.es.mjs": {
+    "file": "_app/immutable/chunks/Bzr520pe.js",
+    "name": "purify.es",
+    "src": "node_modules/dompurify/dist/purify.es.mjs",
+    "isDynamicEntry": true
+  },
+  "node_modules/html2canvas/dist/html2canvas.esm.js": {
+    "file": "_app/immutable/chunks/DXEQVQnt.js",
+    "name": "html2canvas.esm",
+    "src": "node_modules/html2canvas/dist/html2canvas.esm.js",
+    "isDynamicEntry": true
+  }
+}
