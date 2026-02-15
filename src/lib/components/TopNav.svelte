@@ -1,16 +1,17 @@
 <script>
     import Icon from "$lib/components/Icon.svelte";
-    import { user, viewMode, activeMatter } from "$lib/stores/app";
+    import { user, activeMatter } from "$lib/stores/app";
     import { pb } from "$lib/pocketbase";
-
-    function onNavigate(view) {
-        viewMode.set(view);
-    }
+    import { page } from "$app/stores";
+    import { goto } from "$app/navigation";
 
     function onLogout() {
         pb.authStore.clear();
         user.set(null);
+        goto("/");
     }
+
+    let currentPath = $derived($page.url.pathname);
 </script>
 
 <header
@@ -18,9 +19,9 @@
 >
     <div class="flex items-center gap-8">
         <!-- Logo -->
-        <button
-            class="flex items-center gap-2 cursor-pointer border-none bg-transparent p-0"
-            onclick={() => onNavigate("dashboard")}
+        <a
+            href="/"
+            class="flex items-center gap-2 cursor-pointer border-none bg-transparent p-0 no-underline"
         >
             <div
                 class="bg-indigo-600 text-white p-2 rounded-xl shadow-lg shadow-indigo-100 flex items-center justify-center"
@@ -31,40 +32,39 @@
                 class="text-lg font-black tracking-tighter text-slate-800 hidden sm:inline"
                 >DocAssemble</span
             >
-        </button>
+        </a>
 
         <!-- Primary Navigation -->
         <nav
             class="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200/50"
         >
-            <button
-                onclick={() => onNavigate("dashboard")}
-                class={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${
-                    $viewMode === "dashboard" ||
-                    ($viewMode === "assemble" && $activeMatter)
+            <a
+                href="/matters"
+                class={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all no-underline ${
+                    currentPath.startsWith("/matters") ||
+                    currentPath.startsWith("/edit")
                         ? "bg-white text-indigo-600 shadow-sm"
                         : "text-slate-400 hover:text-slate-600"
                 }`}
             >
                 <Icon name="Briefcase" size={14} />
                 <span>Matters</span>
-            </button>
-            <button
-                onclick={() => onNavigate("structures-dashboard")}
-                class={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${
-                    $viewMode === "structures-dashboard" ||
-                    $viewMode === "structure-editor"
+            </a>
+            <a
+                href="/templates"
+                class={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all no-underline ${
+                    currentPath.startsWith("/templates")
                         ? "bg-white text-indigo-600 shadow-sm"
                         : "text-slate-400 hover:text-slate-600"
                 }`}
             >
                 <Icon name="FileCode" size={14} />
                 <span>Templates</span>
-            </button>
+            </a>
         </nav>
 
         <!-- Breadcrumb for Active Matter/Document if in Editor -->
-        {#if $viewMode === "assemble" && $activeMatter}
+        {#if currentPath.startsWith("/edit") && $activeMatter}
             <div
                 class="flex items-center gap-2 animate-in fade-in slide-in-from-left-2 duration-300"
             >

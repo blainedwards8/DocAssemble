@@ -1,3 +1,7 @@
 {
-	"/": []
+	"/": [],
+	"/edit/[id]": [],
+	"/matters": [],
+	"/templates": [],
+	"/templates/[id]": []
 }
