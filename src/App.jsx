@@ -177,18 +177,18 @@ function App() {
     const loops = new Map();
     const scan = (text) => {
       if (!text) return;
-      const loopRegex = /\{#foreach\s+([a-zA-Z0-9_]+)\}([\s\S]*?)\{\/foreach\}/g;
+      const loopRegex = /\{#foreach\s+([a-zA-Z0-9_-]+)\}([\s\S]*?)\{\/foreach\}/g;
       let match;
       while ((match = loopRegex.exec(text)) !== null) {
         const key = match[1];
         const subContent = match[2];
         if (!loops.has(key)) loops.set(key, new Set());
-        const subMatchRegex = /\{([a-zA-Z0-9_]+)\}/g;
+        const subMatchRegex = /\{([a-zA-Z0-9_-]+)\}/g;
         let subMatch;
         while ((subMatch = subMatchRegex.exec(subContent)) !== null) loops.get(key).add(subMatch[1]);
       }
       const cleanText = text.replace(loopRegex, "");
-      const varRegex = /\{([a-zA-Z0-9_]+)\}/g;
+      const varRegex = /\{([a-zA-Z0-9_-]+)\}/g;
       while ((match = varRegex.exec(cleanText)) !== null) simpleVars.add(match[1]);
     };
     parsedTemplate.forEach(item => { scan(item.content); if (item.value) scan(item.value.content); });

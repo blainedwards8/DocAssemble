@@ -3,7 +3,7 @@ export const resolveVariables = (text, variables, isCopying = false, pathPrefix 
     if (!text) return "";
 
     // 1. Process Loops
-    let processedText = text.replace(/\{#foreach\s+([a-zA-Z0-9_]+)\}([\s\S]*?)\{\/foreach\}/g, (match, listKey, subContent) => {
+    let processedText = text.replace(/\{#foreach\s+([a-zA-Z0-9_-]+)\}([\s\S]*?)\{\/foreach\}/g, (match, listKey, subContent) => {
         const listData = variables[listKey];
         if (!Array.isArray(listData) || listData.length === 0) {
             if (isCopying) return "";
@@ -17,7 +17,7 @@ export const resolveVariables = (text, variables, isCopying = false, pathPrefix 
     });
 
     // 2. Process Variables
-    return processedText.replace(/\{([a-zA-Z0-9_]+)\}/g, (match, name) => {
+    return processedText.replace(/\{([a-zA-Z0-9_-]+)\}/g, (match, name) => {
         const isFilled = variables[name] !== undefined && variables[name] !== "";
         const displayValue = isFilled ? variables[name] : match;
         const copyValue = isFilled ? variables[name] : match;
@@ -180,14 +180,14 @@ export const extractStructureMetadata = (markdown) => {
         }
 
         // 2. Loops ({#foreach list})
-        const loopMatch = line.match(/\{#foreach\s+([a-zA-Z0-9_]+)\}/);
+        const loopMatch = line.match(/\{#foreach\s+([a-zA-Z0-9_-]+)\}/);
         if (loopMatch) {
             loops.add(loopMatch[1]);
         }
     });
 
     // 3. Variables ({var_name}) - everywhere in text
-    const varMatches = markdown.matchAll(/\{([a-zA-Z0-9_]+)\}/g);
+    const varMatches = markdown.matchAll(/\{([a-zA-Z0-9_-]+)\}/g);
     for (const match of varMatches) {
         // Filter out loop-related markers if necessary (though regex matches only word chars)
         // If it starts with # it's a loop start, handled above or by filtering.
