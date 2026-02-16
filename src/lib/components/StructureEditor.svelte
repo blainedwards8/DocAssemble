@@ -1,7 +1,7 @@
 <script>
     import ProvisionEditorModal from "$lib/components/ProvisionEditorModal.svelte";
     import Icon from "$lib/components/Icon.svelte";
-    import { pb } from "$lib/pocketbase";
+    import { pb } from "$lib/pocketbase.svelte";
     import { extractStructureMetadata } from "$lib/utils/utils";
 
     let {

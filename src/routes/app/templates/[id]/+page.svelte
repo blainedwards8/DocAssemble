@@ -3,7 +3,7 @@
     import StructureEditor from "$lib/components/StructureEditor.svelte";
     import TopNav from "$lib/components/TopNav.svelte";
     import { structures, snippets, variableConfigs } from "$lib/stores/app";
-    import { pb } from "$lib/pocketbase";
+    import { pb } from "$lib/pocketbase.svelte";
     import { onMount } from "svelte";
     import { goto } from "$app/navigation";
 

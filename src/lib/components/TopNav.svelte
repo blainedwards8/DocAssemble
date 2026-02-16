@@ -1,17 +1,18 @@
 <script>
     import Icon from "$lib/components/Icon.svelte";
-    import { user, activeMatter } from "$lib/stores/app";
-    import { pb } from "$lib/pocketbase";
-    import { page } from "$app/stores";
+    import { pb, auth } from "$lib/pocketbase.svelte";
     import { goto } from "$app/navigation";
+    import {page} from "$app/state";
+
+    let user = auth.user;
 
     function onLogout() {
         pb.authStore.clear();
-        user.set(null);
-        goto("/");
+        goto("/login");
     }
 
-    let currentPath = $derived($page.url.pathname);
+    let activeMatter = $state({});
+    let currentPath = $derived(page.url.pathname);
 </script>
 
 <header
@@ -35,7 +36,7 @@
         </a>
 
         <!-- Primary Navigation -->
-        <nav
+        <!-- <nav
             class="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200/50"
         >
             <a
@@ -61,10 +62,10 @@
                 <Icon name="FileCode" size={14} />
                 <span>Templates</span>
             </a>
-        </nav>
+        </nav> -->
 
         <!-- Breadcrumb for Active Matter/Document if in Editor -->
-        {#if currentPath.startsWith("/edit") && $activeMatter}
+        <!-- {#if currentPath.startsWith("/edit") && $activeMatter}
             <div
                 class="flex items-center gap-2 animate-in fade-in slide-in-from-left-2 duration-300"
             >
@@ -79,7 +80,7 @@
                 </div>
             </div>
         {/if}
-    </div>
+    </div> -->
 
     <div class="flex items-center gap-4">
         <!-- User Profile -->
@@ -88,10 +89,10 @@
                 <p
                     class="text-[10px] font-black text-slate-800 uppercase tracking-widest leading-none mb-1"
                 >
-                    {$user?.email?.split("@")[0] || "User"}
+                    {auth.user?.email?.split("@")[0] || "User"}
                 </p>
                 <p class="text-[9px] font-medium text-slate-400 leading-none">
-                    {$user?.email || ""}
+                    {auth.user?.email || ""}
                 </p>
             </div>
             <div
@@ -111,5 +112,6 @@
                 </div>
             </div>
         </div>
+    </div>
     </div>
 </header>

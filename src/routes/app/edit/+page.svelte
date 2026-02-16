@@ -1,55 +1,46 @@
 <script>
     import { onMount, tick } from "svelte";
-    import { page } from "$app/stores";
-    import { pb } from "$lib/pocketbase";
+    import { pb } from "$lib/pocketbase.svelte";
     import Icon from "$lib/components/Icon.svelte";
     import MarkdownRenderer from "$lib/components/MarkdownRenderer.svelte";
     import TopNav from "$lib/components/TopNav.svelte";
     import {
-        resolveVariables,
-        parseMarkdown,
         triggerSave,
         getNestedValue,
         setNestedValue,
         extractStructureMetadata,
     } from "$lib/utils/utils.js";
+    import { generateDocx, generatePdf } from "$lib/utils/export.js";
     import {
-        generateDocx,
-        generatePdf,
-        generateRtf,
-    } from "$lib/utils/exportUtils.js";
-    import {
-        user,
         activeMatter,
         viewMode,
         rawTemplate,
         snippets,
-        structures,
-        variables,
-        variableConfigs,
-        slotValues,
         disabledSlots,
         activeDocumentId,
-        structureId,
-        structureTitle,
-        tierStyles,
-        continuousNumbering,
     } from "$lib/stores/app.js";
 
     import ProvisionEditorModal from "$lib/components/ProvisionEditorModal.svelte";
 
-    // ... (previous imports)
+    let./[id]/$types.js { data } = $props();
 
     let lastSaved = $state(null);
     let searchTerm = $state("");
-    let activeTab = $state(null);
     let editingVariable = $state(null);
     let dragOverSlotId = $state(null);
     let modalConfig = $state({ isOpen: false, mode: "" });
     let loading = $state(true);
     let saveStatus = $state("idle"); // idle, saving, saved, error
-    let saveTimeout = null;
     let selectedSlotId = $state(null);
+    let variables = $state(data.initialState?.variables ?? {});
+    let slotValues = $state(data.initialState?.slotValues ?? {});
+    let tierStyles = $state(data.initialState?.tierStyles ?? []);
+    let continuousNumbering = $state(
+        data.initialState?.continuousNumbering ?? true,
+    );
+    let variableConfigs = $state(data.initialState?.variableConfigs ?? {});
+    let structureTitle = $state(data.initialState?.structureTitle ?? "");
+    let structureId = $state(data.initialState?.structureId ?? null);
 
     // Provision Editing Logic
     let isProvisionModalOpen = $state(false);
@@ -61,14 +52,6 @@
             (/** @type {any} */ s) => s.id === selectedSlotId,
         );
         return slot ? slot.category : null;
-    });
-
-    onMount(async () => {
-        const id = $page.params.id;
-        if (id) {
-            await loadDocument(id);
-        }
-        loading = false;
     });
 
     /** @param {string} id */
@@ -93,27 +76,6 @@
                 } else if (typeof stateData === "object") {
                     state = stateData;
                 }
-
-                if (state) {
-                    rawTemplate.set(state.rawTemplate || "");
-                    structureTitle.set(state.structureTitle || doc.title);
-                    structureId.set(state.structureId || null);
-                    variables.set(state.variables || {});
-                    slotValues.set(state.slotValues || {});
-                    tierStyles.set(
-                        state.tierStyles || [
-                            "decimal",
-                            "lower-alpha",
-                            "lower-roman",
-                        ],
-                    );
-                    continuousNumbering.set(
-                        state.continuousNumbering !== undefined
-                            ? state.continuousNumbering
-                            : true,
-                    );
-                    variableConfigs.set(state.variableConfigs || {});
-                }
             }
             activeDocumentId.set(doc.id);
             viewMode.set("assemble");
@@ -124,7 +86,7 @@
 
     // --- Derived Logic (Mirrored from +page.svelte) ---
     let parsedTemplate = $derived(() => {
-        const lines = $rawTemplate.split("\n");
+        const lines = rawTemplate.split("\n");
         const result = [];
         let currentStatic = [];
         const seenIds = new Map();
@@ -156,7 +118,7 @@
                     label,
                     category,
                     tag,
-                    value: $slotValues[slotId] || null,
+                    value: slotValues[slotId] || null,
                 });
             } else {
                 currentStatic.push(line);
@@ -190,7 +152,7 @@
                     ? item.content
                     : item.value?.content || "";
             const matches = content.match(/^(\d+)\. (.*$)/gm);
-            if (matches && $continuousNumbering) currentCount += matches.length;
+            if (matches && continuousNumbering) currentCount += matches.length;
         });
         return offsets;
     });
@@ -213,25 +175,6 @@
         return Array.from(simpleVars).sort();
     });
 
-    // --- Persistence ---
-    $effect(() => {
-        const state = {
-            rawTemplate: $rawTemplate,
-            variables: $variables,
-            slotValues: $slotValues,
-            tierStyles: $tierStyles,
-            continuousNumbering: $continuousNumbering,
-            variableConfigs: $variableConfigs,
-        };
-        localStorage.setItem("DOCASSEMBLE_AUTOSAVE_V1", JSON.stringify(state));
-        lastSaved = new Date();
-
-        // Trigger Cloud Autosave
-        if ($activeDocumentId && !loading) {
-            triggerAutosave();
-        }
-    });
-
     function triggerAutosave() {
         if (saveTimeout) clearTimeout(saveTimeout);
         saveStatus = "saving";
@@ -247,10 +190,10 @@
 
     // --- Handlers ---
     function handleVariableClick(path, rect) {
-        const currentVal = getNestedValue($variables, path) || "";
+        const currentVal = getNestedValue(variables, path) || "";
 
         // Get metadata from template
-        const meta = extractStructureMetadata($rawTemplate);
+        const meta = extractStructureMetadata(rawTemplate);
         const metaConfigs = meta.variableMeta || {};
 
         // Try full path config, then leaf name config (from store or meta)
@@ -258,8 +201,8 @@
             .split(/[.\[\]]+/)
             .filter(Boolean)
             .pop();
-        const config = $variableConfigs[path] ||
-            $variableConfigs[leafName] ||
+        const config = variableConfigs[path] ||
+            variableConfigs[leafName] ||
             metaConfigs[leafName] || { type: "text" };
 
         editingVariable = { path, value: currentVal, rect, config };
@@ -287,33 +230,18 @@
         editingVariable = null;
     }
 
-    $effect(() => {
-        if ($activeDocumentId && !loading) {
-            // Force tracking of all relevant stores
-            const _ = {
-                t: $rawTemplate,
-                v: $variables,
-                s: $slotValues,
-                ts: $tierStyles,
-                cn: $continuousNumbering,
-                vc: $variableConfigs,
-            };
-            triggerAutosave();
-        }
-    });
-
     async function handleExport(format) {
         let blob;
-        const filename = `${$structureTitle || "Document"}_${Date.now()}`;
+        const filename = `${structureTitle || "Document"}_${Date.now()}`;
         try {
             if (format === "docx") {
                 blob = await generateDocx(
                     parsedTemplate(),
-                    $variables,
+                    variables,
                     sectionListOffsets(),
-                    $continuousNumbering,
-                    $tierStyles,
-                    $disabledSlots,
+                    continuousNumbering,
+                    tierStyles,
+                    disabledSlots,
                 );
                 await triggerSave(
                     blob,
@@ -323,11 +251,11 @@
             } else if (format === "pdf") {
                 blob = generatePdf(
                     parsedTemplate(),
-                    $variables,
+                    variables,
                     sectionListOffsets(),
-                    $continuousNumbering,
-                    $tierStyles,
-                    $disabledSlots,
+                    continuousNumbering,
+                    tierStyles,
+                    disabledSlots,
                 );
                 await triggerSave(blob, `${filename}.pdf`, "application/pdf");
             }
@@ -337,30 +265,30 @@
     }
 
     async function saveToCloud(isAutosave = false) {
-        if (!$activeMatter || !$activeDocumentId) {
+        if (!activeMatter || !activeDocumentId) {
             console.warn("Missing matter or document ID, skipping cloud save");
             return false;
         }
 
         try {
             const state = {
-                rawTemplate: $rawTemplate,
-                structureId: $structureId,
-                structureTitle: $structureTitle,
-                variables: $variables,
-                slotValues: $slotValues,
-                tierStyles: $tierStyles,
-                continuousNumbering: $continuousNumbering,
-                variableConfigs: $variableConfigs,
+                rawTemplate: rawTemplate,
+                structureId: structureId,
+                structureTitle: structureTitle,
+                variables,
+                slotValues: slotValues,
+                tierStyles: tierStyles,
+                continuousNumbering: continuousNumbering,
+                variableConfigs: variableConfigs,
             };
 
             const payload = {
-                matter: $activeMatter.id,
+                matter: activeMatter.id,
                 state: JSON.stringify(state),
                 description: JSON.stringify(state),
             };
 
-            await pb.collection("documents").update($activeDocumentId, payload);
+            await pb.collection("documents").update(activeDocumentId, payload);
             if (!isAutosave) alert("Saved!");
             return true;
         } catch (e) {
@@ -371,11 +299,11 @@
     }
 
     async function syncVariableConfigs() {
-        if (!$structureId) return;
+        if (!structureId) return;
         try {
             const template = await pb
                 .collection("templates")
-                .getOne($structureId);
+                .getOne(structureId);
             if (template.state) {
                 const parsed = JSON.parse(template.state);
                 if (parsed.variableConfigs) {
@@ -400,7 +328,7 @@
         e.preventDefault();
         dragOverSlotId = null;
         const snippetId = e.dataTransfer.getData("snippetId");
-        const snippet = $snippets.find((s) => s.id === snippetId);
+        const snippet = snippets.find((s) => s.id === snippetId);
         if (snippet && snippet.category === item.category) {
             slotValues.update((prev) => ({
                 ...prev,
@@ -489,7 +417,7 @@
                     {#each ["assemble", "preview"] as m}
                         <button
                             onclick={() => viewMode.set(m)}
-                            class={`px-4 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${$viewMode === m ? "bg-white text-indigo-600 shadow-sm border border-slate-100" : "text-slate-400 hover:text-slate-600"}`}
+                            class={`px-4 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === m ? "bg-white text-indigo-600 shadow-sm border border-slate-100" : "text-slate-400 hover:text-slate-600"}`}
                         >
                             {m}
                         </button>
@@ -558,7 +486,7 @@
         </div>
 
         <div class="flex-1 flex overflow-hidden">
-            {#if $viewMode === "assemble"}
+            {#if viewMode === "assemble"}
                 <aside
                     class="w-80 border-r border-slate-200 bg-white flex flex-col shrink-0 shadow-sm overflow-hidden z-10"
                 >
@@ -604,7 +532,7 @@
                     <div
                         class="flex-1 overflow-y-auto p-4 space-y-2 custom-scrollbar"
                     >
-                        {#if !selectedCategory() && $snippets.length > 0}
+                        {#if !selectedCategory() && snippets.length > 0}
                             <div class="text-center py-12 px-6">
                                 <div
                                     class="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-200"
@@ -627,7 +555,7 @@
                                         {cat}
                                     </h3>
                                     <div class="space-y-2">
-                                        {#each $snippets.filter((s) => s.category === cat && (!searchTerm || s.title
+                                        {#each snippets.filter((s) => s.category === cat && (!searchTerm || s.title
                                                         .toLowerCase()
                                                         .includes(searchTerm.toLowerCase()))) as snippet}
                                             <div
@@ -652,7 +580,7 @@
                 class="flex-1 overflow-y-auto p-12 bg-slate-50/50 scroll-smooth custom-scrollbar"
             >
                 <div
-                    class={`mx-auto bg-white shadow-2xl min-h-[1056px] w-full max-w-[816px] p-16 lg:p-24 border border-slate-200 transition-all duration-500 ${$viewMode === "preview" ? "rounded-none shadow-xl" : "rounded-2xl"}`}
+                    class={`mx-auto bg-white shadow-2xl min-h-[1056px] w-full max-w-[816px] p-16 lg:p-24 border border-slate-200 transition-all duration-500 ${viewMode === "preview" ? "rounded-none shadow-xl" : "rounded-2xl"}`}
                 >
                     <div class="space-y-2">
                         {#each parsedTemplate() as item}
@@ -660,10 +588,10 @@
                             {#if item.type === "static"}
                                 <MarkdownRenderer
                                     content={item.content}
-                                    variables={$variables}
+                                    {variables}
                                     startOffset={offset}
-                                    continuous={$continuousNumbering}
-                                    tierStyles={$tierStyles}
+                                    continuous={continuousNumbering}
+                                    {tierStyles}
                                     onVariableClick={handleVariableClick}
                                 />
                             {:else}
@@ -731,10 +659,10 @@
                                             </div>
                                             <MarkdownRenderer
                                                 content={item.value.content}
-                                                variables={$variables}
+                                                {variables}
                                                 startOffset={offset}
-                                                continuous={$continuousNumbering}
-                                                tierStyles={$tierStyles}
+                                                continuous={continuousNumbering}
+                                                {tierStyles}
                                                 onVariableClick={handleVariableClick}
                                             />
                                         </div>
@@ -817,7 +745,7 @@
                 class="grid grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto p-1"
             >
                 {#each detectedVariables() as v}
-                    {@const config = $variableConfigs[v] || { type: "text" }}
+                    {@const config = variableConfigs[v] || { type: "text" }}
                     <div class="space-y-1">
                         <label
                             for="var-{v}"
@@ -830,13 +758,13 @@
                             <input
                                 id="var-{v}"
                                 type="date"
-                                bind:value={$variables[v]}
+                                bind:value={variables[v]}
                                 class="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500/20"
                             />
                         {:else if config.type === "select"}
                             <select
                                 id="var-{v}"
-                                bind:value={$variables[v]}
+                                bind:value={variables[v]}
                                 class="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 bg-white"
                             >
                                 <option value="">Select option...</option>
@@ -847,7 +775,7 @@
                         {:else}
                             <input
                                 type="text"
-                                bind:value={$variables[v]}
+                                bind:value={variables[v]}
                                 class="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500/20"
                             />
                         {/if}

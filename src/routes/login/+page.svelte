@@ -1,6 +1,5 @@
 <script>
-    import { pb } from "$lib/pocketbase";
-    import Icon from "$lib/components/Icon.svelte";
+    import { pb } from "$lib/pocketbase.svelte";
     import { user } from "$lib/stores/app";
 
     /** @type {{ onLogin?: (record: any) => void }} */
