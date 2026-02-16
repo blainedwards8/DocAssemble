@@ -3,20 +3,28 @@ import { jsPDF } from "jspdf";
 import { resolveVariables } from "./utils";
 
 // --- Helpers for List styles ---
-const toRoman = (num) => {
+const toRoman = (/** @type {number} */ num) => {
+    /** @type {Record<string, number>} */
     const lookup = { m: 1000, cm: 900, d: 500, cd: 400, c: 100, xc: 90, l: 50, xl: 40, x: 10, ix: 9, v: 5, iv: 4, i: 1 };
     let roman = '';
-    for (let i in lookup) { while (num >= lookup[i]) { roman += i; num -= lookup[i]; } }
+    for (/** @type {string} */ let i in lookup) { while (num >= lookup[i]) { roman += i; num -= lookup[i]; } }
     return roman;
 };
-const toAlpha = (num) => String.fromCharCode(96 + num); // 1 = a
-const formatNumber = (num, style) => {
+const toAlpha = (/** @type {number} */ num) => String.fromCharCode(96 + num); // 1 = a
+const formatNumber = (/** @type {number} */ num, /** @type {string} */ style) => {
     if (style === 'lower-alpha') return `${toAlpha(num)}.`;
     if (style === 'lower-roman') return `${toRoman(num)}.`;
     return `${num}.`;
 };
 
 // --- Core Parser: Converts Template to Structured Blocks ---
+/** 
+ * @param {any[]} parsedTemplate 
+ * @param {any} variables 
+ * @param {any} sectionListOffsets 
+ * @param {any} disabledSlots 
+ * @param {any} tierStyles 
+ */
 const parseForExport = (parsedTemplate, variables, sectionListOffsets, disabledSlots, tierStyles) => {
     const blocks = [];
 
@@ -81,6 +89,14 @@ const parseForExport = (parsedTemplate, variables, sectionListOffsets, disabledS
 };
 
 // --- DOCX Export ---
+/** 
+ * @param {any[]} parsedTemplate 
+ * @param {any} variables 
+ * @param {any} sectionListOffsets 
+ * @param {any} continuousNumbering 
+ * @param {any} tierStyles 
+ * @param {any} disabledSlots 
+ */
 export const generateDocx = async (parsedTemplate, variables, sectionListOffsets, continuousNumbering, tierStyles, disabledSlots) => {
     const blocks = parseForExport(parsedTemplate, variables, sectionListOffsets, disabledSlots, tierStyles);
 
@@ -120,6 +136,14 @@ export const generateDocx = async (parsedTemplate, variables, sectionListOffsets
 };
 
 // --- PDF Export ---
+/** 
+ * @param {any[]} parsedTemplate 
+ * @param {any} variables 
+ * @param {any} sectionListOffsets 
+ * @param {any} continuousNumbering 
+ * @param {any} tierStyles 
+ * @param {any} disabledSlots 
+ */
 export const generatePdf = (parsedTemplate, variables, sectionListOffsets, continuousNumbering, tierStyles, disabledSlots) => {
     const blocks = parseForExport(parsedTemplate, variables, sectionListOffsets, disabledSlots, tierStyles);
     const doc = new jsPDF();
@@ -161,6 +185,14 @@ export const generatePdf = (parsedTemplate, variables, sectionListOffsets, conti
 };
 
 // --- RTF Export ---
+/** 
+ * @param {any[]} parsedTemplate 
+ * @param {any} variables 
+ * @param {any} sectionListOffsets 
+ * @param {any} continuousNumbering 
+ * @param {any} tierStyles 
+ * @param {any} disabledSlots 
+ */
 export const generateRtf = (parsedTemplate, variables, sectionListOffsets, continuousNumbering, tierStyles, disabledSlots) => {
     const blocks = parseForExport(parsedTemplate, variables, sectionListOffsets, disabledSlots, tierStyles);
     let rtf = "{\\rtf1\\ansi\\deff0\n{\\fonttbl{\\f0 Arial;}}\n\\f0\\fs24\n";

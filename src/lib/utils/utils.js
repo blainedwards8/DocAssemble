@@ -1,8 +1,15 @@
 
+/**
+ * @param {string} text
+ * @param {any} variables
+ * @param {boolean} [isCopying]
+ * @param {string} [pathPrefix]
+ */
 export const resolveVariables = (text, variables, isCopying = false, pathPrefix = "") => {
     if (!text) return "";
 
     // 1. Process Loops
+    /** @type {string} */
     let processedText = text.replace(/\{#foreach\s+([a-zA-Z0-9_-]+)\}([\s\S]*?)\{\/foreach\}/g, (match, listKey, subContent) => {
         const listData = variables[listKey];
         if (!Array.isArray(listData) || listData.length === 0) {
@@ -42,12 +49,20 @@ export const resolveVariables = (text, variables, isCopying = false, pathPrefix 
     });
 };
 
+/**
+ * @param {string} text
+ * @param {number} [startOffset]
+ * @param {boolean} [continuous]
+ * @param {string[]} [tierStyles]
+ */
 export const parseMarkdown = (text, startOffset = 1, continuous = false, tierStyles = []) => {
     if (!text) return "";
     const lines = text.split('\n');
+    /** @type {any[]} */
     let result = [];
+    /** @type {any[]} */
     let listStack = [];
-    const closeLists = (toLevel) => { while (listStack.length > toLevel) result.push(`</${listStack.pop()}>`); };
+    const closeLists = (/** @type {number} */ toLevel) => { while (listStack.length > toLevel) result.push(`</${listStack.pop()}>`); };
 
     lines.forEach(line => {
         const headerMatch = line.match(/^(#{1,3}) (.*$)/);
@@ -95,19 +110,31 @@ export const parseMarkdown = (text, startOffset = 1, continuous = false, tierSty
 
 
 // --- 3. Save Function ---
+/**
+ * @param {string|Blob} content
+ * @param {string} filename
+ * @param {string} mimeType
+ */
 export const triggerSave = async (content, filename, mimeType) => {
+    // @ts-ignore
     if (typeof window.showSaveFilePicker === 'function') {
         try {
+            // @ts-ignore
             const handle = await window.showSaveFilePicker({
                 suggestedName: filename,
                 types: [{ description: 'File', accept: { [mimeType]: [`.${filename.split('.').pop()}`] } }],
             });
-            const writable = await handle.createWritable();
-            await writable.write(content);
-            await writable.close();
-            return;
+            // @ts-ignore
+            if (handle instanceof FileSystemFileHandle) {
+                // @ts-ignore
+                const writable = await handle.createWritable();
+                await writable.write(content);
+                await writable.close();
+                return;
+            }
         } catch (err) {
-            if (err.name !== 'AbortError') console.error('Save failed', err);
+            const e = /** @type {any} */ (err);
+            if (e.name !== 'AbortError') console.error('Save failed', err);
             // Fallback if user cancels or error
         }
     }
@@ -125,6 +152,10 @@ export const triggerSave = async (content, filename, mimeType) => {
 };
 
 // --- 4. Nested Property Helpers ---
+/**
+ * @param {any} obj
+ * @param {string} path
+ */
 export const getNestedValue = (obj, path) => {
     if (!path) return undefined;
     const parts = path.split(/[\.\[\]]+/).filter(Boolean);
@@ -136,6 +167,11 @@ export const getNestedValue = (obj, path) => {
     return current;
 };
 
+/**
+ * @param {any} obj
+ * @param {string} path
+ * @param {any} value
+ */
 export const setNestedValue = (obj, path, value) => {
     const parts = path.split(/[\.\[\]]+/).filter(Boolean);
     const newObj = Array.isArray(obj) ? [...obj] : { ...obj };
@@ -147,7 +183,7 @@ export const setNestedValue = (obj, path, value) => {
         // Ensure structure exists
         if (current[part] === undefined) {
             // Try to determine if next is index -> array, else object
-            const isNum = !isNaN(parts[i + 1]);
+            const isNum = !isNaN(Number(parts[i + 1]));
             current[part] = isNum ? [] : {};
         }
 
@@ -168,11 +204,16 @@ export const setNestedValue = (obj, path, value) => {
 };
 
 // --- 5. Metadata Extraction ---
+/**
+ * @param {string} markdown
+ */
 export const extractStructureMetadata = (markdown) => {
     if (!markdown) return { variables: [], sections: [], loops: [], variableMeta: {} };
 
     const variables = new Set();
+    /** @type {Record<string, any>} */
     const variableMeta = {};
+    /** @type {any[]} */
     const sections = [];
     const loops = new Set();
 

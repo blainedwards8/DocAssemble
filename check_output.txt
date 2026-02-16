@@ -1,0 +1,759 @@
+﻿Loading svelte-check in workspace: c:\Users\blaine\projects\DocAssemble
+Getting Svelte diagnostics...
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\lib\utils\utils.js[39m:2:34
+[31mError[39m: Parameter 'text' implicitly has an 'any' type. 
+[36m
+export const resolveVariables = ([35mtext[36m, variables, isCopying = false, pathPrefix = "") => {
+    if (!text) return "";[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\lib\utils\utils.js[39m:2:40
+[31mError[39m: Parameter 'variables' implicitly has an 'any' type. 
+[36m
+export const resolveVariables = (text, [35mvariables[36m, isCopying = false, pathPrefix = "") => {
+    if (!text) return "";[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\lib\utils\utils.js[39m:6:98
+[31mError[39m: Parameter 'match' implicitly has an 'any' type. 
+[36m    // 1. Process Loops
+    let processedText = text.replace(/\{#foreach\s+([a-zA-Z0-9_-]+)\}([\s\S]*?)\{\/foreach\}/g, ([35mmatch[36m, listKey, subContent) => {
+        const listData = variables[listKey];[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\lib\utils\utils.js[39m:6:105
+[31mError[39m: Parameter 'listKey' implicitly has an 'any' type. 
+[36m    // 1. Process Loops
+    let processedText = text.replace(/\{#foreach\s+([a-zA-Z0-9_-]+)\}([\s\S]*?)\{\/foreach\}/g, (match, [35mlistKey[36m, subContent) => {
+        const listData = variables[listKey];[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\lib\utils\utils.js[39m:6:114
+[31mError[39m: Parameter 'subContent' implicitly has an 'any' type. 
+[36m    // 1. Process Loops
+    let processedText = text.replace(/\{#foreach\s+([a-zA-Z0-9_-]+)\}([\s\S]*?)\{\/foreach\}/g, (match, listKey, [35msubContent[36m) => {
+        const listData = variables[listKey];[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\lib\utils\utils.js[39m:21:45
+[31mError[39m: Parameter 'match' implicitly has an 'any' type. 
+[36m    const varRegex = /\{([a-zA-Z0-9_-]+)(?:\|([a-zA-Z0-9_-]+))?(?:\[(.*?)\])?\}/g;
+    return processedText.replace(varRegex, ([35mmatch[36m, name, type, options) => {
+        const isFilled = variables[name] !== undefined && variables[name] !== "";[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\lib\utils\utils.js[39m:21:52
+[31mError[39m: Parameter 'name' implicitly has an 'any' type. 
+[36m    const varRegex = /\{([a-zA-Z0-9_-]+)(?:\|([a-zA-Z0-9_-]+))?(?:\[(.*?)\])?\}/g;
+    return processedText.replace(varRegex, (match, [35mname[36m, type, options) => {
+        const isFilled = variables[name] !== undefined && variables[name] !== "";[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\lib\utils\utils.js[39m:21:58
+[31mError[39m: Parameter 'type' implicitly has an 'any' type. 
+[36m    const varRegex = /\{([a-zA-Z0-9_-]+)(?:\|([a-zA-Z0-9_-]+))?(?:\[(.*?)\])?\}/g;
+    return processedText.replace(varRegex, (match, name, [35mtype[36m, options) => {
+        const isFilled = variables[name] !== undefined && variables[name] !== "";[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\lib\utils\utils.js[39m:21:64
+[31mError[39m: Parameter 'options' implicitly has an 'any' type. 
+[36m    const varRegex = /\{([a-zA-Z0-9_-]+)(?:\|([a-zA-Z0-9_-]+))?(?:\[(.*?)\])?\}/g;
+    return processedText.replace(varRegex, (match, name, type, [35moptions[36m) => {
+        const isFilled = variables[name] !== undefined && variables[name] !== "";[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\lib\utils\utils.js[39m:45:31
+[31mError[39m: Parameter 'text' implicitly has an 'any' type. 
+[36m
+export const parseMarkdown = ([35mtext[36m, startOffset = 1, continuous = false, tierStyles = []) => {
+    if (!text) return "";[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\lib\utils\utils.js[39m:45:74
+[31mError[39m: Parameter 'tierStyles' implicitly has an 'any[]' type. 
+[36m
+export const parseMarkdown = (text, startOffset = 1, continuous = false, [35mtierStyles = [][36m) => {
+    if (!text) return "";[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\lib\utils\utils.js[39m:48:9
+[31mError[39m: Variable 'result' implicitly has type 'any[]' in some locations where its type cannot be determined. 
+[36m    const lines = text.split('\n');
+    let [35mresult[36m = [];
+    let listStack = [];[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\lib\utils\utils.js[39m:49:9
+[31mError[39m: Variable 'listStack' implicitly has type 'any[]' in some locations where its type cannot be determined. 
+[36m    let result = [];
+    let [35mlistStack[36m = [];
+    const closeLists = (toLevel) => { while (listStack.length > toLevel) result.push(`</${listStack.pop()}>`); };[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\lib\utils\utils.js[39m:50:25
+[31mError[39m: Parameter 'toLevel' implicitly has an 'any' type. 
+[36m    let listStack = [];
+    const closeLists = ([35mtoLevel[36m) => { while (listStack.length > toLevel) result.push(`</${listStack.pop()}>`); };[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\lib\utils\utils.js[39m:50:91
+[31mError[39m: Variable 'listStack' implicitly has an 'any[]' type. 
+[36m    let listStack = [];
+    const closeLists = (toLevel) => { while (listStack.length > toLevel) result.push(`</${[35mlistStack[36m.pop()}>`); };[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\lib\utils\utils.js[39m:52:19
+[31mError[39m: Parameter 'line' implicitly has an 'any' type. 
+[36m
+    lines.forEach([35mline[36m => {
+        const headerMatch = line.match(/^(#{1,3}) (.*$)/);[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\lib\utils\utils.js[39m:93:12
+[31mError[39m: Variable 'result' implicitly has an 'any[]' type. 
+[36m    closeLists(0);
+    return [35mresult[36m.join('');
+};[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\lib\utils\utils.js[39m:98:35
+[31mError[39m: Parameter 'content' implicitly has an 'any' type. 
+[36m// --- 3. Save Function ---
+export const triggerSave = async ([35mcontent[36m, filename, mimeType) => {
+    if (typeof window.showSaveFilePicker === 'function') {[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\lib\utils\utils.js[39m:98:44
+[31mError[39m: Parameter 'filename' implicitly has an 'any' type. 
+[36m// --- 3. Save Function ---
+export const triggerSave = async (content, [35mfilename[36m, mimeType) => {
+    if (typeof window.showSaveFilePicker === 'function') {[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\lib\utils\utils.js[39m:98:54
+[31mError[39m: Parameter 'mimeType' implicitly has an 'any' type. 
+[36m// --- 3. Save Function ---
+export const triggerSave = async (content, filename, [35mmimeType[36m) => {
+    if (typeof window.showSaveFilePicker === 'function') {[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\lib\utils\utils.js[39m:99:23
+[31mError[39m: Property 'showSaveFilePicker' does not exist on type 'Window & typeof globalThis'. 
+[36mexport const triggerSave = async (content, filename, mimeType) => {
+    if (typeof window.[35mshowSaveFilePicker[36m === 'function') {
+        try {[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\lib\utils\utils.js[39m:101:41
+[31mError[39m: Property 'showSaveFilePicker' does not exist on type 'Window & typeof globalThis'. 
+[36m        try {
+            const handle = await window.[35mshowSaveFilePicker[36m({
+                suggestedName: filename,[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\lib\utils\utils.js[39m:110:17
+[31mError[39m: 'err' is of type 'unknown'. 
+[36m        } catch (err) {
+            if ([35merr[36m.name !== 'AbortError') console.error('Save failed', err);
+            // Fallback if user cancels or error[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\lib\utils\utils.js[39m:128:32
+[31mError[39m: Parameter 'obj' implicitly has an 'any' type. 
+[36m// --- 4. Nested Property Helpers ---
+export const getNestedValue = ([35mobj[36m, path) => {
+    if (!path) return undefined;[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\lib\utils\utils.js[39m:128:37
+[31mError[39m: Parameter 'path' implicitly has an 'any' type. 
+[36m// --- 4. Nested Property Helpers ---
+export const getNestedValue = (obj, [35mpath[36m) => {
+    if (!path) return undefined;[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\lib\utils\utils.js[39m:139:32
+[31mError[39m: Parameter 'obj' implicitly has an 'any' type. 
+[36m
+export const setNestedValue = ([35mobj[36m, path, value) => {
+    const parts = path.split(/[\.\[\]]+/).filter(Boolean);[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\lib\utils\utils.js[39m:139:37
+[31mError[39m: Parameter 'path' implicitly has an 'any' type. 
+[36m
+export const setNestedValue = (obj, [35mpath[36m, value) => {
+    const parts = path.split(/[\.\[\]]+/).filter(Boolean);[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\lib\utils\utils.js[39m:139:43
+[31mError[39m: Parameter 'value' implicitly has an 'any' type. 
+[36m
+export const setNestedValue = (obj, path, [35mvalue[36m) => {
+    const parts = path.split(/[\.\[\]]+/).filter(Boolean);[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\lib\utils\utils.js[39m:171:42
+[31mError[39m: Parameter 'markdown' implicitly has an 'any' type. 
+[36m// --- 5. Metadata Extraction ---
+export const extractStructureMetadata = ([35mmarkdown[36m) => {
+    if (!markdown) return { variables: [], sections: [], loops: [], variableMeta: {} };[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\lib\utils\utils.js[39m:176:11
+[31mError[39m: Variable 'sections' implicitly has type 'any[]' in some locations where its type cannot be determined. 
+[36m    const variableMeta = {};
+    const [35msections[36m = [];
+    const loops = new Set();[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\lib\utils\utils.js[39m:181:19
+[31mError[39m: Parameter 'line' implicitly has an 'any' type. 
+[36m
+    lines.forEach([35mline[36m => {
+        // 1. Sections [[Label|Category]] or [[Label|Category|Tag]][39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\lib\utils\utils.js[39m:209:13
+[31mError[39m: Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{}'. 
+[36m        if (type || optionsStr) {
+            [35mvariableMeta[name][36m = {
+                type: type || (optionsStr ? 'select' : 'text'),[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\lib\utils\utils.js[39m:211:65
+[31mError[39m: Parameter 'o' implicitly has an 'any' type. 
+[36m                type: type || (optionsStr ? 'select' : 'text'),
+                options: optionsStr ? optionsStr.split(',').map([35mo[36m => o.trim()) : undefined
+            };[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\lib\utils\utils.js[39m:219:9
+[31mError[39m: Variable 'sections' implicitly has an 'any[]' type. 
+[36m        variableMeta,
+        [35msections[36m,
+        loops: Array.from(loops).sort()[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\lib\utils\exportUtils.js[39m:29:11
+[31mError[39m: Variable 'blocks' implicitly has type 'any[]' in some locations where its type cannot be determined. 
+[36mconst parseForExport = (parsedTemplate, variables, sectionListOffsets, disabledSlots, tierStyles) => {
+    const [35mblocks[36m = [];[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\lib\utils\exportUtils.js[39m:43:23
+[31mError[39m: Parameter 'line' implicitly has an 'any' type. 
+[36m        const lines = text.split('\n');
+        lines.forEach([35mline[36m => {
+            if (!line.trim()) return;[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\lib\utils\exportUtils.js[39m:88:12
+[31mError[39m: Variable 'blocks' implicitly has an 'any[]' type. 
+[36m    });
+    return [35mblocks[36m;
+};[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\lib\utils\exportUtils.js[39m:159:25
+[31mError[39m: Argument of type 'undefined' is not assignable to parameter of type 'string'. 
+[36m        if (block.type === 'header') {
+            doc.setFont([35mundefined[36m, 'bold');
+            doc.setFontSize(block.level === 1 ? 16 : 14);[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\lib\utils\exportUtils.js[39m:163:25
+[31mError[39m: Argument of type 'undefined' is not assignable to parameter of type 'string'. 
+[36m            y += 8;
+            doc.setFont([35mundefined[36m, 'normal');
+            doc.setFontSize(12);[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\lib\utils\exportUtils.js[39m:173:41
+[31mError[39m: Parameter 'l' implicitly has an 'any' type. 
+[36m            if (lines.length > 1) {
+                lines.slice(1).forEach(([35ml[36m, i) => doc.text(l, indent + 5, y + ((i + 1) * 6))); // indent wrapped lines
+                y += (lines.length - 1) * 6;[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\lib\utils\exportUtils.js[39m:173:44
+[31mError[39m: Parameter 'i' implicitly has an 'any' type. 
+[36m            if (lines.length > 1) {
+                lines.slice(1).forEach((l, [35mi[36m) => doc.text(l, indent + 5, y + ((i + 1) * 6))); // indent wrapped lines
+                y += (lines.length - 1) * 6;[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\lib\components\Icon.svelte[39m:7:33
+[31mError[39m: Element implicitly has an 'any' type because expression of type 'string' can't be used to index type 'typeof import("c:/Users/blaine/projects/DocAssemble/node_modules/lucide-svelte/dist/lucide-svelte")'.
+  No index signature with a parameter of type 'string' was found on type 'typeof import("c:/Users/blaine/projects/DocAssemble/node_modules/lucide-svelte/dist/lucide-svelte")'. (js)
+[36m
+    const LucideIcon = $derived([35mLucide[name][36m);
+</script>[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\lib\components\Login.svelte[39m:28:13
+[31mError[39m: Type '"Invalid email or password."' is not assignable to type 'null'. (js)
+[36m            console.error("Login failed", err);
+            [35merror[36m = "Invalid email or password.";
+        } finally {[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\lib\components\MattersDashboard.svelte[39m:9:9
+[31mError[39m: Variable 'documents' implicitly has an 'any[]' type. (js)
+[36m
+    let [35mdocuments[36m = $state([]);
+    let isLoadingDocs = $state(false);[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\lib\components\MattersDashboard.svelte[39m:17:42
+[31mError[39m: Property 'id' does not exist on type 'never'. (js)
+[36m        if ($activeMatter) {
+            fetchDocuments($activeMatter.[35mid[36m);
+        } else {[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\lib\components\MattersDashboard.svelte[39m:77:41
+[31mError[39m: Property 'title' does not exist on type 'never'. (js)
+[36m                    >
+                        {$activeMatter?.[35mtitle[36m || "Unknown Matter"}
+                    </h1>[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\lib\components\MattersDashboard.svelte[39m:82:41
+[31mError[39m: Property 'client' does not exist on type 'never'. (js)
+[36m                    >
+                        {$activeMatter?.[35mclient[36m ||
+                            $activeMatter?.case_number ||[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\lib\components\MattersDashboard.svelte[39m:83:44
+[31mError[39m: Property 'case_number' does not exist on type 'never'. (js)
+[36m                        {$activeMatter?.client ||
+                            $activeMatter?.[35mcase_number[36m ||
+                            "No Client"}[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\lib\components\ProvisionEditorModal.svelte[39m:6:40
+[33mWarn[39m: This reference only captures the initial value of `provision`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally (svelte)
+[36m
+    let editingProvision = $state({ ...[35mprovision[36m });[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\lib\components\StructureEditor.svelte[39m:18:5
+[31mError[39m: Unexpected token
+https://svelte.dev/e/js_parse_error (svelte)
+[36m        onUpdateVariableConfigs,
+    [35m[36m} = $props();[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\lib\components\StructureEditor.svelte[39m:18:5
+[31mError[39m: Unexpected token
+https://svelte.dev/e/js_parse_error (js)
+[36m        onUpdateVariableConfigs,
+    [35m[36m} = $props();[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\lib\components\TopNav.svelte[39m:77:40
+[31mError[39m: Property 'title' does not exist on type 'never'. (js)
+[36m                    <span class="text-xs font-bold max-w-[150px] truncate">
+                        {$activeMatter.[35mtitle[36m}
+                    </span>[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\edit\[id]\+page.svelte[39m:51:9
+[31mError[39m: Variable 'saveTimeout' implicitly has type 'any' in some locations where its type cannot be determined. (js)
+[36m    let saveStatus = $state("idle"); // idle, saving, saved, error
+    let [35msaveTimeout[36m = null;
+    let selectedSlotId = $state(null);[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\edit\[id]\+page.svelte[39m:63:28
+[31mError[39m: Property 'category' does not exist on type '{ id: string; type: string; content: string; }'. (js)
+[36m        );
+        return slot ? slot.[35mcategory[36m : null;
+    });[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\edit\[id]\+page.svelte[39m:118:34
+[31mError[39m: Argument of type 'string' is not assignable to parameter of type 'null'. (js)
+[36m            }
+            activeDocumentId.set([35mdoc.id[36m);
+            viewMode.set("assemble");[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\edit\[id]\+page.svelte[39m:129:13
+[31mError[39m: Variable 'currentStatic' implicitly has type 'any[]' in some locations where its type cannot be determined. (js)
+[36m        const result = [];
+        let [35mcurrentStatic[36m = [];
+        const seenIds = new Map();[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\edit\[id]\+page.svelte[39m:139:34
+[31mError[39m: Variable 'currentStatic' implicitly has an 'any[]' type. (js)
+[36m                        type: "static",
+                        content: [35mcurrentStatic[36m.join("\n"),
+                    });[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\edit\[id]\+page.svelte[39m:159:28
+[31mError[39m: Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{}'.
+  No index signature with a parameter of type 'string' was found on type '{}'. (js)
+[36m                    tag,
+                    value: [35m$slotValues[slotId][36m || null,
+                });[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\edit\[id]\+page.svelte[39m:169:26
+[31mError[39m: Variable 'currentStatic' implicitly has an 'any[]' type. (js)
+[36m                type: "static",
+                content: [35mcurrentStatic[36m.join("\n"),
+            });[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\edit\[id]\+page.svelte[39m:178:59
+[31mError[39m: Property 'category' does not exist on type '{ id: string; type: string; content: string; }'. (js)
+[36m        parsedTemplate().forEach((item) => {
+            if (item.type === "slot") categories.add(item.[35mcategory[36m);
+        });[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\edit\[id]\+page.svelte[39m:187:13
+[31mError[39m: Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{}'.
+  No index signature with a parameter of type 'string' was found on type '{}'. (js)
+[36m        parsedTemplate().forEach((item) => {
+            [35moffsets[item.id][36m = currentCount;
+            const content =[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\edit\[id]\+page.svelte[39m:191:28
+[31mError[39m: Property 'value' does not exist on type '{ id: string; type: string; content: string; }'. (js)
+[36m                    ? item.content
+                    : item.[35mvalue[36m?.content || "";
+            const matches = content.match(/^(\d+)\. (.*$)/gm);[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\edit\[id]\+page.svelte[39m:200:23
+[31mError[39m: Parameter 'text' implicitly has an 'any' type. (js)
+[36m        const simpleVars = new Set();
+        const scan = ([35mtext[36m) => {
+            if (!text) return;[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\edit\[id]\+page.svelte[39m:211:22
+[31mError[39m: Property 'value' does not exist on type '{ id: string; type: string; content: string; }'. (js)
+[36m            if (item.type === "static") scan(item.content);
+            if (item.[35mvalue[36m) scan(item.value.content);
+        });[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\edit\[id]\+page.svelte[39m:211:39
+[31mError[39m: Property 'value' does not exist on type '{ id: string; type: string; content: string; }'. (js)
+[36m            if (item.type === "static") scan(item.content);
+            if (item.value) scan(item.[35mvalue[36m.content);
+        });[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\edit\[id]\+page.svelte[39m:227:9
+[31mError[39m: Type 'Date' is not assignable to type 'null'. (js)
+[36m        localStorage.setItem("DOCASSEMBLE_AUTOSAVE_V1", JSON.stringify(state));
+        [35mlastSaved[36m = new Date();[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\edit\[id]\+page.svelte[39m:236:13
+[31mError[39m: Variable 'saveTimeout' implicitly has an 'any' type. (js)
+[36m    function triggerAutosave() {
+        if ([35msaveTimeout[36m) clearTimeout(saveTimeout);
+        saveStatus = "saving";[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\edit\[id]\+page.svelte[39m:249:34
+[31mError[39m: Parameter 'path' implicitly has an 'any' type. (js)
+[36m    // --- Handlers ---
+    function handleVariableClick([35mpath[36m, rect) {
+        const currentVal = getNestedValue($variables, path) || "";[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\edit\[id]\+page.svelte[39m:249:40
+[31mError[39m: Parameter 'rect' implicitly has an 'any' type. (js)
+[36m    // --- Handlers ---
+    function handleVariableClick(path, [35mrect[36m) {
+        const currentVal = getNestedValue($variables, path) || "";[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\edit\[id]\+page.svelte[39m:261:24
+[31mError[39m: Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{}'. (js)
+[36m            .pop();
+        const config = [35m$variableConfigs[path][36m ||
+            $variableConfigs[leafName] ||[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\edit\[id]\+page.svelte[39m:262:13
+[31mError[39m: Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{}'. (js)
+[36m        const config = $variableConfigs[path] ||
+            [35m$variableConfigs[leafName][36m ||
+            metaConfigs[leafName] || { type: "text" };[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\edit\[id]\+page.svelte[39m:263:13
+[31mError[39m: Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{}'. (js)
+[36m            $variableConfigs[leafName] ||
+            [35mmetaConfigs[leafName][36m || { type: "text" };[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\edit\[id]\+page.svelte[39m:265:9
+[31mError[39m: Type '{ path: any; value: any; rect: any; config: any; }' is not assignable to type 'null'. (js)
+[36m
+        [35meditingVariable[36m = { path, value: currentVal, rect, config };
+    }[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\edit\[id]\+page.svelte[39m:270:36
+[31mError[39m: Parameter 'e' implicitly has an 'any' type. (js)
+[36m    onMount(() => {
+        const handleGlobalClick = ([35me[36m) => {
+            // If we're clicking inside the editor, don't dismiss[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\edit\[id]\+page.svelte[39m:285:31
+[31mError[39m: 'editingVariable' is possibly 'null'. (js)
+[36m        variables.update((v) =>
+            setNestedValue(v, [35meditingVariable[36m.path, editingVariable.value),
+        );[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\edit\[id]\+page.svelte[39m:285:53
+[31mError[39m: 'editingVariable' is possibly 'null'. (js)
+[36m        variables.update((v) =>
+            setNestedValue(v, editingVariable.path, [35meditingVariable[36m.value),
+        );[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\edit\[id]\+page.svelte[39m:305:33
+[31mError[39m: Parameter 'format' implicitly has an 'any' type. (js)
+[36m
+    async function handleExport([35mformat[36m) {
+        let blob;[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\edit\[id]\+page.svelte[39m:358:39
+[31mError[39m: Property 'id' does not exist on type 'never'. (js)
+[36m            const payload = {
+                matter: $activeMatter.[35mid[36m,
+                state: JSON.stringify(state),[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\edit\[id]\+page.svelte[39m:395:26
+[31mError[39m: Parameter 'e' implicitly has an 'any' type. (js)
+[36m
+    function onDragStart([35me[36m, snippet) {
+        e.dataTransfer.setData("snippetId", snippet.id);[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\edit\[id]\+page.svelte[39m:395:29
+[31mError[39m: Parameter 'snippet' implicitly has an 'any' type. (js)
+[36m
+    function onDragStart(e, [35msnippet[36m) {
+        e.dataTransfer.setData("snippetId", snippet.id);[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\edit\[id]\+page.svelte[39m:399:21
+[31mError[39m: Parameter 'e' implicitly has an 'any' type. (js)
+[36m
+    function onDrop([35me[36m, item) {
+        e.preventDefault();[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\edit\[id]\+page.svelte[39m:399:24
+[31mError[39m: Parameter 'item' implicitly has an 'any' type. (js)
+[36m
+    function onDrop(e, [35mitem[36m) {
+        e.preventDefault();[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\edit\[id]\+page.svelte[39m:417:20
+[31mError[39m: Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{}'.
+  No index signature with a parameter of type 'string' was found on type '{}'. (js)
+[36m            const next = { ...prev };
+            delete [35mnext[slotId][36m;
+            return next;[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\edit\[id]\+page.svelte[39m:451:25
+[31mError[39m: Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{}'.
+  No index signature with a parameter of type 'string' was found on type '{}'. (js)
+[36m                Object.keys(next).forEach((key) => {
+                    if ([35mnext[key][36m.id === savedRecord.id) {
+                        next[key] = { ...savedRecord };[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\edit\[id]\+page.svelte[39m:452:25
+[31mError[39m: Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{}'.
+  No index signature with a parameter of type 'string' was found on type '{}'. (js)
+[36m                    if (next[key].id === savedRecord.id) {
+                        [35mnext[key][36m = { ...savedRecord };
+                    }[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\edit\[id]\+page.svelte[39m:467:9
+[31mError[39m: Type 'string' is not assignable to type 'null'. (js)
+[36m    function selectSlot(id) {
+        [35mselectedSlotId[36m = id;
+    }[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\edit\[id]\+page.svelte[39m:539:50
+[31mError[39m: Property 'toLocaleTimeString' does not exist on type 'never'. (js)
+[36m                        >
+                            Last Sync {lastSaved.[35mtoLocaleTimeString[36m([], {
+                                hour: "2-digit",[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\edit\[id]\+page.svelte[39m:659:46
+[31mError[39m: Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{}'.
+  No index signature with a parameter of type 'string' was found on type '{}'. (js)
+[36m                        {#each parsedTemplate() as item}
+                            {@const offset = [35msectionListOffsets()[item.id][36m || 1}
+                            {#if item.type === "static"}[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\edit\[id]\+page.svelte[39m:679:41
+[31mError[39m: Type 'string' is not assignable to type 'null'. (js)
+[36m                                        e.preventDefault();
+                                        [35mdragOverSlotId[36m = item.id;
+                                    }}[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\edit\[id]\+page.svelte[39m:683:178
+[31mError[39m: Property 'value' does not exist on type '{ id: string; type: string; content: string; }'. (js)
+[36m                                    ondrop={(e) => onDrop(e, item)}
+                                    class={`relative group min-h-[40px] rounded-2xl transition-all border-2 flex flex-col items-center justify-center mb-4 cursor-pointer ${item.[35mvalue[36m ? (selectedSlotId === item.id ? "bg-indigo-50 border-indigo-200 shadow-sm" : "border-transparent bg-indigo-50/30") : selectedSlotId === item.id ? "border-indigo-300 bg-indigo-50/50" : "border-dashed border-slate-200 bg-slate-50/50"} ${dragOverSlotId === item.id ? "ring-2 ring-indigo-500" : ""}`}
+                                >[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\edit\[id]\+page.svelte[39m:685:48
+[31mError[39m: Property 'value' does not exist on type '{ id: string; type: string; content: string; }'. (js)
+[36m                                >
+                                    {#if !item.[35mvalue[36m}
+                                        <div[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\edit\[id]\+page.svelte[39m:696:56
+[31mError[39m: Property 'label' does not exist on type '{ id: string; type: string; content: string; }'. (js)
+[36m                                                class="text-[10px] font-black uppercase tracking-widest"
+                                                >{item.[35mlabel[36m}</span
+                                            >[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\edit\[id]\+page.svelte[39m:708:66
+[31mError[39m: Property 'value' does not exist on type '{ id: string; type: string; content: string; }'. (js)
+[36m                                                        openEditProvisionModal(
+                                                            item.[35mvalue[36m,
+                                                        );[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\edit\[id]\+page.svelte[39m:733:63
+[31mError[39m: Property 'value' does not exist on type '{ id: string; type: string; content: string; }'. (js)
+[36m                                            <MarkdownRenderer
+                                                content={item.[35mvalue[36m.content}
+                                                variables={$variables}[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\edit\[id]\+page.svelte[39m:754:55
+[31mError[39m: Property 'rect' does not exist on type 'never'. (js)
+[36m    <div
+        style="position: fixed; top: {editingVariable.[35mrect[36m
+            .top}px; left: {editingVariable.rect.left}px; z-index: 100"[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\edit\[id]\+page.svelte[39m:755:45
+[31mError[39m: Property 'rect' does not exist on type 'never'. (js)
+[36m        style="position: fixed; top: {editingVariable.rect
+            .top}px; left: {editingVariable.[35mrect[36m.left}px; z-index: 100"
+    >[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\edit\[id]\+page.svelte[39m:757:30
+[31mError[39m: Property 'config' does not exist on type 'never'. (js)
+[36m    >
+        {#if editingVariable.[35mconfig[36m?.type === "date"}
+            <input[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\edit\[id]\+page.svelte[39m:761:45
+[31mError[39m: Property 'value' does not exist on type 'never'. (js)
+[36m                class="variable-editor-input px-2 py-0.5 rounded font-bold border-2 border-indigo-500 bg-white shadow-xl outline-none"
+                bind:value={editingVariable.[35mvalue[36m}
+                onblur={saveVariableEdit}[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\edit\[id]\+page.svelte[39m:763:56
+[31mError[39m: 'e.target' is possibly 'null'. (js)
+[36m                onblur={saveVariableEdit}
+                onkeydown={(e) => e.key === "Enter" && [35me.target[36m.blur()}
+            />[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\edit\[id]\+page.svelte[39m:763:65
+[31mError[39m: Property 'blur' does not exist on type 'EventTarget'. (js)
+[36m                onblur={saveVariableEdit}
+                onkeydown={(e) => e.key === "Enter" && e.target.[35mblur[36m()}
+            />[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\edit\[id]\+page.svelte[39m:765:35
+[31mError[39m: Property 'config' does not exist on type 'never'. (js)
+[36m            />
+        {:else if editingVariable.[35mconfig[36m?.type === "select"}
+            <select[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\edit\[id]\+page.svelte[39m:768:45
+[31mError[39m: Property 'value' does not exist on type 'never'. (js)
+[36m                class="variable-editor-input px-2 py-0.5 pr-8 rounded font-bold border-2 border-indigo-500 bg-white shadow-xl outline-none"
+                bind:value={editingVariable.[35mvalue[36m}
+                onchange={saveVariableEdit}[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\edit\[id]\+page.svelte[39m:772:40
+[31mError[39m: Property 'config' does not exist on type 'never'. (js)
+[36m                <option value="">Select...</option>
+                {#each editingVariable.[35mconfig[36m.options || [] as option}
+                    <option value={option}>{option}</option>[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\edit\[id]\+page.svelte[39m:780:45
+[31mError[39m: Property 'value' does not exist on type 'never'. (js)
+[36m                class="variable-editor-input px-2 py-0.5 rounded font-bold border-2 border-indigo-500 bg-white shadow-xl outline-none"
+                bind:value={editingVariable.[35mvalue[36m}
+                onblur={saveVariableEdit}[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\edit\[id]\+page.svelte[39m:782:56
+[31mError[39m: 'e.target' is possibly 'null'. (js)
+[36m                onblur={saveVariableEdit}
+                onkeydown={(e) => e.key === "Enter" && [35me.target[36m.blur()}
+            />[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\edit\[id]\+page.svelte[39m:782:65
+[31mError[39m: Property 'blur' does not exist on type 'EventTarget'. (js)
+[36m                onblur={saveVariableEdit}
+                onkeydown={(e) => e.key === "Enter" && e.target.[35mblur[36m()}
+            />[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\edit\[id]\+page.svelte[39m:820:38
+[31mError[39m: Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{}'. (js)
+[36m                {#each detectedVariables() as v}
+                    {@const config = [35m$variableConfigs[v][36m || { type: "text" }}
+                    <div class="space-y-1">[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\edit\[id]\+page.svelte[39m:833:45
+[31mError[39m: Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{}'. (js)
+[36m                                type="date"
+                                bind:value={[35m$variables[v][36m}
+                                class="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500/20"[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\edit\[id]\+page.svelte[39m:839:45
+[31mError[39m: Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{}'. (js)
+[36m                                id="var-{v}"
+                                bind:value={[35m$variables[v][36m}
+                                class="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 bg-white"[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\edit\[id]\+page.svelte[39m:850:45
+[31mError[39m: Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{}'. (js)
+[36m                                type="text"
+                                bind:value={[35m$variables[v][36m}
+                                class="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500/20"[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\matters\+page.svelte[39m:11:33
+[31mError[39m: Parameter 'doc' implicitly has an 'any' type. (js)
+[36m
+    function handleOpenDocument([35mdoc[36m, mode) {
+        if (mode === "edit") {[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\matters\+page.svelte[39m:11:38
+[31mError[39m: Parameter 'mode' implicitly has an 'any' type. (js)
+[36m
+    function handleOpenDocument(doc, [35mmode[36m) {
+        if (mode === "edit") {[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\matters\+page.svelte[39m:25:41
+[31mError[39m: Parameter 'structure' implicitly has an 'any' type. (js)
+[36m
+    async function handleSelectTemplate([35mstructure[36m) {
+        if (!$activeMatter) return;[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\matters\+page.svelte[39m:52:39
+[31mError[39m: Property 'id' does not exist on type 'never'. (js)
+[36m                title: structure.title,
+                matter: $activeMatter.[35mid[36m,
+                state: JSON.stringify(state),[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\matters\+page.svelte[39m:66:39
+[31mError[39m: Parameter 'matterData' implicitly has an 'any' type. (js)
+[36m
+    async function handleCreateMatter([35mmatterData[36m) {
+        try {[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\matters\+page.svelte[39m:69:30
+[31mError[39m: Argument of type 'RecordModel' is not assignable to parameter of type 'null'. (js)
+[36m            const record = await pb.collection("matters").create(matterData);
+            activeMatter.set([35mrecord[36m);
+        } catch (err) {[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\templates\+page.svelte[39m:6:34
+[31mError[39m: Parameter 'structure' implicitly has an 'any' type. (js)
+[36m
+    function handleEditStructure([35mstructure[36m) {
+        goto(`/templates/${structure.id}`);[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\templates\[id]\+page.svelte[39m:3:33
+[31mError[39m: File 'c:/Users/blaine/projects/DocAssemble/src/lib/components/StructureEditor.svelte' is not a module. (js)
+[36m    import { page } from "$app/stores";
+    import StructureEditor from [35m"$lib/components/StructureEditor.svelte"[36m;
+    import TopNav from "$lib/components/TopNav.svelte";[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\templates\[id]\+page.svelte[39m:16:13
+[31mError[39m: Type '{ title: string; content: string; variables: never[]; provisions: never[]; isNew: boolean; }' is not assignable to type 'null'. (js)
+[36m        if (id === "new") {
+            [35mstructure[36m = {
+                title: "New Template",[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\templates\[id]\+page.svelte[39m:28:72
+[31mError[39m: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'. (js)
+[36m            try {
+                const record = await pb.collection("templates").getOne([35mid[36m);
+                structure = record;[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\templates\[id]\+page.svelte[39m:29:17
+[31mError[39m: Type 'RecordModel' is not assignable to type 'null'. (js)
+[36m                const record = await pb.collection("templates").getOne(id);
+                [35mstructure[36m = record;
+                // Restore variableConfigs from state[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\templates\[id]\+page.svelte[39m:56:25
+[31mError[39m: Parameter 'rec' implicitly has an 'any' type. (js)
+[36m
+    function handleSave([35mrec[36m) {
+        alert("Template saved!");[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\templates\[id]\+page.svelte[39m:58:13
+[31mError[39m: 'structure' is possibly 'null'. (js)
+[36m        alert("Template saved!");
+        if ([35mstructure[36m.isNew) {
+            goto(`/templates/${rec.id}`, { replaceState: true });[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\templates\[id]\+page.svelte[39m:78:36
+[31mError[39m: Parameter 's' implicitly has an 'any' type. (js)
+[36m                variableConfigs={$variableConfigs}
+                onUpdateSnippets={([35ms[36m) => snippets.set(s)}
+                onUpdateVariableConfigs={(c) => variableConfigs.set(c)}[39m
+
+c:\Users\blaine\projects\DocAssemble\[32msrc\routes\templates\[id]\+page.svelte[39m:79:43
+[31mError[39m: Parameter 'c' implicitly has an 'any' type. (js)
+[36m                onUpdateSnippets={(s) => snippets.set(s)}
+                onUpdateVariableConfigs={([35mc[36m) => variableConfigs.set(c)}
+                onBack={handleBack}[39m
+
+====================================
+[31msvelte-check found 124 errors and 1 warning in 12 files
+[39m

@@ -36,6 +36,10 @@
         continuousNumbering,
     } from "$lib/stores/app.js";
 
+    import ProvisionEditorModal from "$lib/components/ProvisionEditorModal.svelte";
+
+    // ... (previous imports)
+
     let lastSaved = $state(null);
     let searchTerm = $state("");
     let activeTab = $state(null);
@@ -46,9 +50,16 @@
     let saveStatus = $state("idle"); // idle, saving, saved, error
     let saveTimeout = null;
     let selectedSlotId = $state(null);
+
+    // Provision Editing Logic
+    let isProvisionModalOpen = $state(false);
+    let editingProvisionFromSlot = $state(null);
+
     let selectedCategory = $derived(() => {
         if (!selectedSlotId) return null;
-        const slot = parsedTemplate().find((s) => s.id === selectedSlotId);
+        const slot = parsedTemplate().find(
+            (/** @type {any} */ s) => s.id === selectedSlotId,
+        );
         return slot ? slot.category : null;
     });
 
@@ -60,6 +71,7 @@
         loading = false;
     });
 
+    /** @param {string} id */
     async function loadDocument(id) {
         try {
             const doc = await pb
@@ -120,43 +132,43 @@
         lines.forEach((line) => {
             const slotMatch = line.match(/^\[\[(.*)\]\]$/);
             if (slotMatch) {
-                const parts = slotMatch[1].split("|");
-                if (parts.length >= 2) {
-                    if (currentStatic.length > 0) {
-                        result.push({
-                            id: `static-${result.length}`,
-                            type: "static",
-                            content: currentStatic.join("\n"),
-                        });
-                        currentStatic = [];
-                    }
-                    const label = parts[0].trim();
-                    const category = parts[1].trim();
-                    const tag = parts[2] ? parts[2].trim() : null;
-                    const baseKey =
-                        `slot-${label}-${category}-${tag || "default"}`
-                            .toLowerCase()
-                            .replace(/[^a-z0-9]+/g, "-");
-                    const count = seenIds.get(baseKey) || 0;
-                    seenIds.set(baseKey, count + 1);
-                    const slotId = `${baseKey}-${count}`;
+                if (currentStatic.length > 0) {
                     result.push({
-                        id: slotId,
-                        type: "slot",
-                        label,
-                        category,
-                        tag,
-                        value: $slotValues[slotId] || null,
+                        id: `static-${result.length}`,
+                        type: "static",
+                        content: currentStatic.join("\n"),
                     });
-                } else currentStatic.push(line);
-            } else currentStatic.push(line);
+                    currentStatic = [];
+                }
+                const parts = slotMatch[1].split("|");
+                const label = parts[0] ? parts[0].trim() : "Untitled";
+                const category = parts[1] ? parts[1].trim() : "General";
+                const tag = parts[2] ? parts[2].trim() : null;
+                const baseKey = `slot-${label}-${category}-${tag || "default"}`
+                    .toLowerCase()
+                    .replace(/[^a-z0-9]+/g, "-");
+                const count = seenIds.get(baseKey) || 0;
+                seenIds.set(baseKey, count + 1);
+                const slotId = `${baseKey}-${count}`;
+                result.push({
+                    id: slotId,
+                    type: "slot",
+                    label,
+                    category,
+                    tag,
+                    value: $slotValues[slotId] || null,
+                });
+            } else {
+                currentStatic.push(line);
+            }
         });
-        if (currentStatic.length > 0)
+        if (currentStatic.length > 0) {
             result.push({
                 id: `static-${result.length}`,
                 type: "static",
                 content: currentStatic.join("\n"),
             });
+        }
         return result;
     });
 
@@ -394,11 +406,63 @@
                 ...prev,
                 [item.id]: { ...snippet },
             }));
-            // After dropping, clear selection or keep it?
-            // Let's keep it so user can swap easily.
         }
     }
 
+    // --- New Provision Handlers ---
+    /** @param {string} slotId */
+    function removeSlotValue(slotId) {
+        slotValues.update((prev) => {
+            const next = { ...prev };
+            delete next[slotId];
+            return next;
+        });
+    }
+
+    /** @param {any} provision */
+    function openEditProvisionModal(provision) {
+        editingProvisionFromSlot = { ...provision };
+        isProvisionModalOpen = true;
+    }
+
+    /** @param {any} updatedProvision */
+    async function handleSaveProvision(updatedProvision) {
+        try {
+            let savedRecord = updatedProvision;
+
+            if (updatedProvision.id) {
+                // Update global library
+                savedRecord = await pb
+                    .collection("templates")
+                    .update(updatedProvision.id, updatedProvision);
+                snippets.update((s) =>
+                    s.map((item) =>
+                        item.id === savedRecord.id ? savedRecord : item,
+                    ),
+                );
+            } else {
+                console.warn("Editing provision without ID");
+            }
+
+            // Update local slot values that match this provision
+            slotValues.update((prev) => {
+                const next = { ...prev };
+                Object.keys(next).forEach((key) => {
+                    if (next[key].id === savedRecord.id) {
+                        next[key] = { ...savedRecord };
+                    }
+                });
+                return next;
+            });
+
+            isProvisionModalOpen = false;
+        } catch (err) {
+            console.error("Failed to save provision", err);
+            alert("Failed to update provision.");
+        }
+    }
+
+    /** @param {string} id */
     function selectSlot(id) {
         selectedSlotId = id;
     }
@@ -616,7 +680,7 @@
                                     }}
                                     ondragleave={() => (dragOverSlotId = null)}
                                     ondrop={(e) => onDrop(e, item)}
-                                    class={`relative min-h-[40px] rounded-2xl transition-all border-2 flex flex-col items-center justify-center mb-4 cursor-pointer ${item.value ? (selectedSlotId === item.id ? "bg-indigo-50 border-indigo-200 shadow-sm" : "border-transparent bg-indigo-50/30") : selectedSlotId === item.id ? "border-indigo-300 bg-indigo-50/50" : "border-dashed border-slate-200 bg-slate-50/50"} ${dragOverSlotId === item.id ? "ring-2 ring-indigo-500" : ""}`}
+                                    class={`relative group min-h-[40px] rounded-2xl transition-all border-2 flex flex-col items-center justify-center mb-4 cursor-pointer ${item.value ? (selectedSlotId === item.id ? "bg-indigo-50 border-indigo-200 shadow-sm" : "border-transparent bg-indigo-50/30") : selectedSlotId === item.id ? "border-indigo-300 bg-indigo-50/50" : "border-dashed border-slate-200 bg-slate-50/50"} ${dragOverSlotId === item.id ? "ring-2 ring-indigo-500" : ""}`}
                                 >
                                     {#if !item.value}
                                         <div
@@ -633,7 +697,38 @@
                                             >
                                         </div>
                                     {:else}
-                                        <div class="w-full p-2">
+                                        <div class="w-full p-2 relative">
+                                            <div
+                                                class="absolute -top-5 -right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none group-hover:pointer-events-auto"
+                                            >
+                                                <button
+                                                    onclick={(e) => {
+                                                        e.stopPropagation();
+                                                        openEditProvisionModal(
+                                                            item.value,
+                                                        );
+                                                    }}
+                                                    title="Edit Provision"
+                                                    class="p-1.5 bg-white text-indigo-600 rounded-full shadow-sm hover:bg-indigo-50 border border-indigo-100 cursor-pointer"
+                                                >
+                                                    <Icon
+                                                        name="Edit3"
+                                                        size={12}
+                                                    />
+                                                </button>
+                                                <button
+                                                    onclick={(e) => {
+                                                        e.stopPropagation();
+                                                        removeSlotValue(
+                                                            item.id,
+                                                        );
+                                                    }}
+                                                    title="Remove Provision"
+                                                    class="p-1.5 bg-white text-rose-500 rounded-full shadow-sm hover:bg-rose-50 border border-rose-100 cursor-pointer"
+                                                >
+                                                    <Icon name="X" size={12} />
+                                                </button>
+                                            </div>
                                             <MarkdownRenderer
                                                 content={item.value.content}
                                                 variables={$variables}
@@ -767,3 +862,9 @@
         </div>
     </div>
 {/if}
+
+<ProvisionEditorModal
+    bind:isOpen={isProvisionModalOpen}
+    provision={editingProvisionFromSlot}
+    onSave={handleSaveProvision}
+/>
