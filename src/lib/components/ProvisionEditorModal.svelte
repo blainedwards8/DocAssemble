@@ -3,11 +3,25 @@
 
     let { isOpen = $bindable(false), provision, onSave } = $props();
 
-    let editingProvision = $state({ ...provision });
+    let editingProvision = $state({
+        id: null,
+        category: "",
+        title: "",
+        content: "",
+    });
 
     $effect(() => {
-        if (isOpen && provision) {
-            editingProvision = { ...provision };
+        if (isOpen) {
+            if (provision) {
+                editingProvision = { ...provision };
+            } else {
+                editingProvision = {
+                    id: null,
+                    category: "",
+                    title: "",
+                    content: "",
+                };
+            }
         }
     });
 

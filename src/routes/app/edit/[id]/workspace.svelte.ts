@@ -1,6 +1,6 @@
 import { pb } from '$lib/pocketbase.svelte';
-import { generateDocx, generatePdf, triggerSave } from '$lib/utils/export'; // Assuming these utility paths
-import { setNestedValue } from '$lib/utils/helpers';
+import { generateDocx, generatePdf } from '$lib/utils/export';
+import { triggerSave, setNestedValue } from '$lib/utils/utils';
 
 export class DocumentWorkspace {
     // --- PERSISTENT STATE ($state) ---
@@ -39,7 +39,7 @@ export class DocumentWorkspace {
     }
 
     // --- DERIVED LOGIC ($derived) ---
-    
+
     /**
      * Parses the raw template string into an array of static text and dynamic slots.
      */
@@ -72,7 +72,7 @@ export class DocumentWorkspace {
                 const baseKey = `slot-${label}-${category}-${tag || "default"}`
                     .toLowerCase()
                     .replace(/[^a-z0-9]+/g, "-");
-                
+
                 const count = seenIds.get(baseKey) || 0;
                 seenIds.set(baseKey, count + 1);
                 const slotId = `${baseKey}-${count}`;
@@ -108,7 +108,7 @@ export class DocumentWorkspace {
         const vars = new Set<string>();
         // Regex for {variable.path}
         const varRegex = /\{([a-zA-Z0-9._]+)\}/g;
-        
+
         // Scan the raw template
         let match;
         while ((match = varRegex.exec(this.rawTemplate)) !== null) {
@@ -156,10 +156,10 @@ export class DocumentWorkspace {
             };
 
             await pb.collection("documents").update(this.activeDocumentId, payload);
-            
+
             this.saveStatus = "saved";
             this.lastSaved = new Date();
-            
+
             if (!isAutosave) {
                 // In SvelteKit/Browser context, alert is usually okay, 
                 // but consider a custom toast in the future
@@ -178,7 +178,7 @@ export class DocumentWorkspace {
      */
     async handleExport(format: 'docx' | 'pdf') {
         const filename = `${this.structureTitle || "Document"}_${Date.now()}`;
-        
+
         try {
             // Helper to bundle arguments for export utilities
             const exportData = [
@@ -193,8 +193,8 @@ export class DocumentWorkspace {
             if (format === "docx") {
                 const blob = await generateDocx(...(exportData as [any, any, any, any, any, any]));
                 await triggerSave(
-                    blob, 
-                    `${filename}.docx`, 
+                    blob,
+                    `${filename}.docx`,
                     "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                 );
             } else {

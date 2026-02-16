@@ -7,11 +7,14 @@
     import { onMount } from "svelte";
     import { goto } from "$app/navigation";
 
+    /** @type {import('$lib/types').Templates | { title: string, content: string, variables: any[], provisions: any[], isNew: boolean } | null} */
     let structure = $state(null);
     let loading = $state(true);
 
     onMount(async () => {
         const id = $page.params.id;
+        if (!id) return; // Should not happen based on route
+
         if (id === "new") {
             structure = {
                 title: "New Template",
@@ -26,6 +29,7 @@
             // Always fetch fresh from PB to ensure we have the 'state' field and latest configs
             try {
                 const record = await pb.collection("templates").getOne(id);
+                // @ts-ignore
                 structure = record;
                 // Restore variableConfigs from state
                 if (record.state) {
@@ -41,6 +45,7 @@
             } catch (err) {
                 console.error("Failed to fetch structure", err);
                 // Fallback to store if PB fails
+                // @ts-ignore
                 const found = $structures.find((s) => s.id === id);
                 if (found) structure = { ...found };
             } finally {
@@ -53,9 +58,10 @@
         goto("/templates");
     }
 
+    /** @param {any} rec */
     function handleSave(rec) {
         alert("Template saved!");
-        if (structure.isNew) {
+        if (structure && "isNew" in structure && structure.isNew) {
             goto(`/templates/${rec.id}`, { replaceState: true });
         }
     }

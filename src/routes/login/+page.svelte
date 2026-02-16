@@ -1,6 +1,7 @@
 <script>
     import { pb } from "$lib/pocketbase.svelte";
     import { user } from "$lib/stores/app";
+    import Icon from "$lib/components/Icon.svelte";
 
     /** @type {{ onLogin?: (record: any) => void }} */
     let { onLogin } = $props();
@@ -8,6 +9,7 @@
     let email = $state("");
     let password = $state("");
     let loading = $state(false);
+    /** @type {string | null} */
     let error = $state(null);
 
     /** @param {SubmitEvent} e */

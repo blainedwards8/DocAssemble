@@ -6,19 +6,19 @@
 
     let {
         initialStructure,
-        snippets,
-        onUpdateSnippets,
-        onSave,
-        onBack,
-        activeDocumentId,
-        variables,
-        slotValues,
-        tierStyles,
-        continuousNumbering,
-        onContentChange,
-        onTitleChange,
+        snippets = [],
+        onUpdateSnippets = () => {},
+        onSave = () => {},
+        onBack = () => {},
+        activeDocumentId = null,
+        variables = {},
+        slotValues = {},
+        tierStyles = [],
+        continuousNumbering = true,
+        onContentChange = () => {},
+        onTitleChange = () => {},
         variableConfigs = {},
-        onUpdateVariableConfigs,
+        onUpdateVariableConfigs = () => {},
     } = $props();
 
     let title = $state("");

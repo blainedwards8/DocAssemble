@@ -22,7 +22,7 @@
 
     import ProvisionEditorModal from "$lib/components/ProvisionEditorModal.svelte";
 
-    let./[id]/$types.js { data } = $props();
+    let { data } = $props();
 
     let lastSaved = $state(null);
     let searchTerm = $state("");
@@ -45,7 +45,7 @@
     // Provision Editing Logic
     let isProvisionModalOpen = $state(false);
     let editingProvisionFromSlot = $state(null);
-
+    let saveTimeout = null; // Defined for autosave
     let selectedCategory = $derived(() => {
         if (!selectedSlotId) return null;
         const slot = parsedTemplate().find(
@@ -62,7 +62,7 @@
                 .getOne(id, { expand: "matter" });
 
             if (doc.expand?.matter) {
-                activeMatter.set(doc.expand.matter);
+                $activeMatter.set(doc.expand.matter);
             }
 
             let stateData = doc.state || doc.description;
@@ -77,8 +77,8 @@
                     state = stateData;
                 }
             }
-            activeDocumentId.set(doc.id);
-            viewMode.set("assemble");
+            $activeDocumentId.set(doc.id);
+            $viewMode.set("assemble");
         } catch (err) {
             console.error("Failed to load document", err);
         }
@@ -86,7 +86,7 @@
 
     // --- Derived Logic (Mirrored from +page.svelte) ---
     let parsedTemplate = $derived(() => {
-        const lines = rawTemplate.split("\n");
+        const lines = $rawTemplate.split("\n");
         const result = [];
         let currentStatic = [];
         const seenIds = new Map();
@@ -193,7 +193,7 @@
         const currentVal = getNestedValue(variables, path) || "";
 
         // Get metadata from template
-        const meta = extractStructureMetadata(rawTemplate);
+        const meta = extractStructureMetadata($rawTemplate);
         const metaConfigs = meta.variableMeta || {};
 
         // Try full path config, then leaf name config (from store or meta)
@@ -241,7 +241,7 @@
                     sectionListOffsets(),
                     continuousNumbering,
                     tierStyles,
-                    disabledSlots,
+                    $disabledSlots,
                 );
                 await triggerSave(
                     blob,
@@ -255,7 +255,7 @@
                     sectionListOffsets(),
                     continuousNumbering,
                     tierStyles,
-                    disabledSlots,
+                    $disabledSlots,
                 );
                 await triggerSave(blob, `${filename}.pdf`, "application/pdf");
             }
@@ -265,14 +265,14 @@
     }
 
     async function saveToCloud(isAutosave = false) {
-        if (!activeMatter || !activeDocumentId) {
+        if (!$activeMatter || !$activeDocumentId) {
             console.warn("Missing matter or document ID, skipping cloud save");
             return false;
         }
 
         try {
             const state = {
-                rawTemplate: rawTemplate,
+                $rawTemplate: $rawTemplate,
                 structureId: structureId,
                 structureTitle: structureTitle,
                 variables,
@@ -283,12 +283,12 @@
             };
 
             const payload = {
-                matter: activeMatter.id,
+                matter: $activeMatter.id,
                 state: JSON.stringify(state),
                 description: JSON.stringify(state),
             };
 
-            await pb.collection("documents").update(activeDocumentId, payload);
+            await pb.collection("documents").update($activeDocumentId, payload);
             if (!isAutosave) alert("Saved!");
             return true;
         } catch (e) {
@@ -328,7 +328,7 @@
         e.preventDefault();
         dragOverSlotId = null;
         const snippetId = e.dataTransfer.getData("snippetId");
-        const snippet = snippets.find((s) => s.id === snippetId);
+        const snippet = $snippets.find((s) => s.id === snippetId);
         if (snippet && snippet.category === item.category) {
             slotValues.update((prev) => ({
                 ...prev,
@@ -363,7 +363,7 @@
                 savedRecord = await pb
                     .collection("templates")
                     .update(updatedProvision.id, updatedProvision);
-                snippets.update((s) =>
+                $snippets.update((s) =>
                     s.map((item) =>
                         item.id === savedRecord.id ? savedRecord : item,
                     ),
@@ -416,8 +416,8 @@
                 >
                     {#each ["assemble", "preview"] as m}
                         <button
-                            onclick={() => viewMode.set(m)}
-                            class={`px-4 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === m ? "bg-white text-indigo-600 shadow-sm border border-slate-100" : "text-slate-400 hover:text-slate-600"}`}
+                            onclick={() => $viewMode.set(m)}
+                            class={`px-4 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${$viewMode === m ? "bg-white text-indigo-600 shadow-sm border border-slate-100" : "text-slate-400 hover:text-slate-600"}`}
                         >
                             {m}
                         </button>
@@ -486,7 +486,7 @@
         </div>
 
         <div class="flex-1 flex overflow-hidden">
-            {#if viewMode === "assemble"}
+            {#if $viewMode === "assemble"}
                 <aside
                     class="w-80 border-r border-slate-200 bg-white flex flex-col shrink-0 shadow-sm overflow-hidden z-10"
                 >
@@ -532,7 +532,7 @@
                     <div
                         class="flex-1 overflow-y-auto p-4 space-y-2 custom-scrollbar"
                     >
-                        {#if !selectedCategory() && snippets.length > 0}
+                        {#if !selectedCategory() && $snippets.length > 0}
                             <div class="text-center py-12 px-6">
                                 <div
                                     class="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-200"
@@ -555,7 +555,7 @@
                                         {cat}
                                     </h3>
                                     <div class="space-y-2">
-                                        {#each snippets.filter((s) => s.category === cat && (!searchTerm || s.title
+                                        {#each $snippets.filter((s) => s.category === cat && (!searchTerm || s.title
                                                         .toLowerCase()
                                                         .includes(searchTerm.toLowerCase()))) as snippet}
                                             <div
@@ -580,7 +580,7 @@
                 class="flex-1 overflow-y-auto p-12 bg-slate-50/50 scroll-smooth custom-scrollbar"
             >
                 <div
-                    class={`mx-auto bg-white shadow-2xl min-h-[1056px] w-full max-w-[816px] p-16 lg:p-24 border border-slate-200 transition-all duration-500 ${viewMode === "preview" ? "rounded-none shadow-xl" : "rounded-2xl"}`}
+                    class={`mx-auto bg-white shadow-2xl min-h-[1056px] w-full max-w-[816px] p-16 lg:p-24 border border-slate-200 transition-all duration-500 ${$viewMode === "preview" ? "rounded-none shadow-xl" : "rounded-2xl"}`}
                 >
                     <div class="space-y-2">
                         {#each parsedTemplate() as item}
