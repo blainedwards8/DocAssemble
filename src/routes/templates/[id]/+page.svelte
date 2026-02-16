@@ -2,9 +2,10 @@
     import { page } from "$app/stores";
     import StructureEditor from "$lib/components/StructureEditor.svelte";
     import TopNav from "$lib/components/TopNav.svelte";
-    import { structures } from "$lib/stores/app";
+    import { structures, snippets, variableConfigs } from "$lib/stores/app";
     import { pb } from "$lib/pocketbase";
     import { onMount } from "svelte";
+    import { goto } from "$app/navigation";
 
     let structure = $state(null);
     let loading = $state(true);
@@ -21,15 +22,14 @@
             };
             loading = false;
         } else {
-            // Find in store first if available
+            // Find in store first
             const found = $structures.find((s) => s.id === id);
             if (found) {
                 structure = { ...found };
                 loading = false;
             } else {
-                // Fetch from PB
                 try {
-                    const record = await pb.collection("structures").getOne(id);
+                    const record = await pb.collection("templates").getOne(id);
                     structure = record;
                 } catch (err) {
                     console.error("Failed to fetch structure", err);
@@ -40,20 +40,14 @@
         }
     });
 
-    async function handleSave(updatedStructure) {
-        try {
-            if (updatedStructure.isNew) {
-                const { isNew, ...data } = updatedStructure;
-                await pb.collection("structures").create(data);
-            } else {
-                await pb
-                    .collection("structures")
-                    .update(updatedStructure.id, updatedStructure);
-            }
-            alert("Structure saved successfully!");
-        } catch (err) {
-            console.error("Failed to save structure", err);
-            alert("Failed to save structure.");
+    function handleBack() {
+        goto("/templates");
+    }
+
+    function handleSave(rec) {
+        alert("Template saved!");
+        if (structure.isNew) {
+            goto(`/templates/${rec.id}`, { replaceState: true });
         }
     }
 </script>
@@ -68,7 +62,14 @@
                 </p>
             </div>
         {:else if structure}
-            <StructureEditor initialStructure={structure} onSave={handleSave} />
+            <StructureEditor
+                initialStructure={structure}
+                snippets={$snippets}
+                onUpdateSnippets={(s) => snippets.set(s)}
+                onUpdateVariableConfigs={(c) => variableConfigs.set(c)}
+                onBack={handleBack}
+                onSave={handleSave}
+            />
         {:else}
             <div class="flex-1 flex items-center justify-center">
                 <p class="text-red-500 font-bold">Structure not found.</p>

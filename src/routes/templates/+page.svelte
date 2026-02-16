@@ -42,6 +42,13 @@
         }
     }
 
+    function handleStructureClick(structure) {
+        if ($activeMatter) {
+            handleUseStructure(structure);
+        } else {
+            handleEditStructure(structure);
+        }
+    }
     function handleCreateStructure() {
         goto("/templates/new");
     }
@@ -51,7 +58,7 @@
     <TopNav />
     <main class="flex-1 overflow-hidden flex flex-col">
         <StructuresDashboard
-            onEditStructure={handleUseStructure}
+            onEditStructure={handleStructureClick}
             onCreateStructure={handleCreateStructure}
         />
     </main>
