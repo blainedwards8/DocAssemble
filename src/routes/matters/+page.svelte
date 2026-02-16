@@ -26,6 +26,16 @@
         if (!$activeMatter) return;
 
         try {
+            let config = {};
+            if (structure.state) {
+                try {
+                    const parsed = JSON.parse(structure.state);
+                    config = parsed.variableConfigs || {};
+                } catch (e) {
+                    console.error("Failed to parse structure state", e);
+                }
+            }
+
             const state = {
                 rawTemplate: structure.content,
                 structureId: structure.id,
@@ -34,7 +44,7 @@
                 slotValues: {},
                 tierStyles: ["decimal", "lower-alpha", "lower-roman"],
                 continuousNumbering: true,
-                variableConfigs: {},
+                variableConfigs: config,
             };
 
             const payload = {

@@ -11,6 +11,7 @@
         triggerSave,
         getNestedValue,
         setNestedValue,
+        extractStructureMetadata,
     } from "$lib/utils/utils.js";
     import {
         generateDocx,
@@ -235,8 +236,36 @@
     // --- Handlers ---
     function handleVariableClick(path, rect) {
         const currentVal = getNestedValue($variables, path) || "";
-        editingVariable = { path, value: currentVal, rect };
+
+        // Get metadata from template
+        const meta = extractStructureMetadata($rawTemplate);
+        const metaConfigs = meta.variableMeta || {};
+
+        // Try full path config, then leaf name config (from store or meta)
+        const leafName = path
+            .split(/[.\[\]]+/)
+            .filter(Boolean)
+            .pop();
+        const config = $variableConfigs[path] ||
+            $variableConfigs[leafName] ||
+            metaConfigs[leafName] || { type: "text" };
+
+        editingVariable = { path, value: currentVal, rect, config };
     }
+
+    // Dismiss editor when clicking elsewhere
+    onMount(() => {
+        const handleGlobalClick = (e) => {
+            // If we're clicking inside the editor, don't dismiss
+            if (e.target.closest(".variable-editor-input")) return;
+
+            if (editingVariable) {
+                saveVariableEdit();
+            }
+        };
+        window.addEventListener("mousedown", handleGlobalClick);
+        return () => window.removeEventListener("mousedown", handleGlobalClick);
+    });
 
     function saveVariableEdit() {
         if (!editingVariable) return;
@@ -607,13 +636,37 @@
         style="position: fixed; top: {editingVariable.rect
             .top}px; left: {editingVariable.rect.left}px; z-index: 100"
     >
-        <input
-            autofocus
-            class="px-2 py-0.5 rounded font-bold border-2 border-indigo-500 bg-white shadow-xl outline-none"
-            bind:value={editingVariable.value}
-            onblur={saveVariableEdit}
-            onkeydown={(e) => e.key === "Enter" && e.target.blur()}
-        />
+        {#if editingVariable.config?.type === "date"}
+            <input
+                type="date"
+                autofocus
+                class="variable-editor-input px-2 py-0.5 rounded font-bold border-2 border-indigo-500 bg-white shadow-xl outline-none"
+                bind:value={editingVariable.value}
+                onblur={saveVariableEdit}
+                onkeydown={(e) => e.key === "Enter" && e.target.blur()}
+            />
+        {:else if editingVariable.config?.type === "select"}
+            <select
+                autofocus
+                class="variable-editor-input px-2 py-0.5 pr-8 rounded font-bold border-2 border-indigo-500 bg-white shadow-xl outline-none"
+                bind:value={editingVariable.value}
+                onchange={saveVariableEdit}
+            >
+                <option value="">Select...</option>
+                {#each editingVariable.config.options || [] as option}
+                    <option value={option}>{option}</option>
+                {/each}
+            </select>
+        {:else}
+            <input
+                type="text"
+                autofocus
+                class="variable-editor-input px-2 py-0.5 rounded font-bold border-2 border-indigo-500 bg-white shadow-xl outline-none"
+                bind:value={editingVariable.value}
+                onblur={saveVariableEdit}
+                onkeydown={(e) => e.key === "Enter" && e.target.blur()}
+            />
+        {/if}
     </div>
 {/if}
 
@@ -657,7 +710,7 @@
                         {:else if config.type === "select"}
                             <select
                                 bind:value={$variables[v]}
-                                class="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 appearance-none bg-white"
+                                class="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 bg-white"
                             >
                                 <option value="">Select option...</option>
                                 {#each config.options || [] as option}
