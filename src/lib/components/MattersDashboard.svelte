@@ -232,11 +232,12 @@
                     >
                         <div class="flex-1 space-y-2">
                             <label
+                                for="matter-name"
                                 class="text-[10px] font-black uppercase tracking-widest text-slate-400 pl-1"
                                 >Matter Name</label
                             >
                             <input
-                                autofocus
+                                id="matter-name"
                                 type="text"
                                 bind:value={newMatterName}
                                 class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all placeholder:text-slate-300"
@@ -246,10 +247,12 @@
                         </div>
                         <div class="flex-1 space-y-2">
                             <label
+                                for="matter-client"
                                 class="text-[10px] font-black uppercase tracking-widest text-slate-400 pl-1"
                                 >Case Number / Client</label
                             >
                             <input
+                                id="matter-client"
                                 type="text"
                                 bind:value={newMatterClient}
                                 class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all placeholder:text-slate-300"

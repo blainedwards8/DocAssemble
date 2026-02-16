@@ -584,10 +584,12 @@
             <div class="p-8 space-y-6">
                 <div class="space-y-2">
                     <label
+                        for="prov-title"
                         class="text-[10px] font-black uppercase tracking-widest text-slate-400"
                         >Title</label
                     >
                     <input
+                        id="prov-title"
                         required
                         type="text"
                         bind:value={editingProvision.title}
@@ -596,10 +598,12 @@
                 </div>
                 <div class="space-y-2">
                     <label
+                        for="prov-content"
                         class="text-[10px] font-black uppercase tracking-widest text-slate-400"
                         >Content</label
                     >
                     <textarea
+                        id="prov-content"
                         required
                         rows="8"
                         bind:value={editingProvision.content}

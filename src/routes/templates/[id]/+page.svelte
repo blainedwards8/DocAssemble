@@ -20,33 +20,31 @@
                 provisions: [],
                 isNew: true,
             };
+            variableConfigs.set({}); // Clear for new
             loading = false;
         } else {
-            // Find in store first
-            const found = $structures.find((s) => s.id === id);
-            if (found) {
-                structure = { ...found };
-                loading = false;
-            } else {
-                try {
-                    const record = await pb.collection("templates").getOne(id);
-                    structure = record;
-                    // Restore variableConfigs from state
-                    if (record.state) {
-                        try {
-                            const state = JSON.parse(record.state);
-                            if (state.variableConfigs) {
-                                variableConfigs.set(state.variableConfigs);
-                            }
-                        } catch (e) {
-                            console.error("Failed to parse template state", e);
+            // Always fetch fresh from PB to ensure we have the 'state' field and latest configs
+            try {
+                const record = await pb.collection("templates").getOne(id);
+                structure = record;
+                // Restore variableConfigs from state
+                if (record.state) {
+                    try {
+                        const parsed = JSON.parse(record.state);
+                        if (parsed.variableConfigs) {
+                            variableConfigs.set(parsed.variableConfigs);
                         }
+                    } catch (e) {
+                        console.error("Failed to parse template state", e);
                     }
-                } catch (err) {
-                    console.error("Failed to fetch structure", err);
-                } finally {
-                    loading = false;
                 }
+            } catch (err) {
+                console.error("Failed to fetch structure", err);
+                // Fallback to store if PB fails
+                const found = $structures.find((s) => s.id === id);
+                if (found) structure = { ...found };
+            } finally {
+                loading = false;
             }
         }
     });
@@ -76,6 +74,7 @@
             <StructureEditor
                 initialStructure={structure}
                 snippets={$snippets}
+                variableConfigs={$variableConfigs}
                 onUpdateSnippets={(s) => snippets.set(s)}
                 onUpdateVariableConfigs={(c) => variableConfigs.set(c)}
                 onBack={handleBack}

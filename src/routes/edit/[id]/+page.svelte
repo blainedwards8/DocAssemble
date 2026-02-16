@@ -358,6 +358,28 @@
         }
     }
 
+    async function syncVariableConfigs() {
+        if (!$structureId) return;
+        try {
+            const template = await pb
+                .collection("templates")
+                .getOne($structureId);
+            if (template.state) {
+                const parsed = JSON.parse(template.state);
+                if (parsed.variableConfigs) {
+                    variableConfigs.set(parsed.variableConfigs);
+                    saveToCloud(true);
+                    alert("Merged latest configurations from blueprint!");
+                }
+            } else {
+                alert("Blueprint has no stored configurations.");
+            }
+        } catch (e) {
+            console.error("Sync failed", e);
+            alert("Failed to sync with blueprint.");
+        }
+    }
+
     function onDragStart(e, snippet) {
         e.dataTransfer.setData("snippetId", snippet.id);
     }
@@ -545,10 +567,11 @@
                                                         .toLowerCase()
                                                         .includes(searchTerm.toLowerCase()))) as snippet}
                                             <div
+                                                role="listitem"
                                                 draggable="true"
                                                 ondragstart={(e) =>
                                                     onDragStart(e, snippet)}
-                                                class="bg-white border border-slate-200 rounded-lg p-3 hover:border-indigo-400 hover:shadow-md cursor-grab text-[11px] font-bold text-slate-700 transition-all"
+                                                class="bg-white border border-slate-200 rounded-lg p-3 hover:border-indigo-400 hover:shadow-md cursor-grab text-[11px] font-bold text-slate-700 transition-all font-sans"
                                             >
                                                 {snippet.title}
                                             </div>
@@ -639,7 +662,6 @@
         {#if editingVariable.config?.type === "date"}
             <input
                 type="date"
-                autofocus
                 class="variable-editor-input px-2 py-0.5 rounded font-bold border-2 border-indigo-500 bg-white shadow-xl outline-none"
                 bind:value={editingVariable.value}
                 onblur={saveVariableEdit}
@@ -647,7 +669,6 @@
             />
         {:else if editingVariable.config?.type === "select"}
             <select
-                autofocus
                 class="variable-editor-input px-2 py-0.5 pr-8 rounded font-bold border-2 border-indigo-500 bg-white shadow-xl outline-none"
                 bind:value={editingVariable.value}
                 onchange={saveVariableEdit}
@@ -660,7 +681,6 @@
         {:else}
             <input
                 type="text"
-                autofocus
                 class="variable-editor-input px-2 py-0.5 rounded font-bold border-2 border-indigo-500 bg-white shadow-xl outline-none"
                 bind:value={editingVariable.value}
                 onblur={saveVariableEdit}
@@ -678,14 +698,23 @@
             class="bg-white rounded-3xl shadow-2xl w-full max-w-xl p-8 flex flex-col"
         >
             <div class="flex justify-between items-center mb-6">
-                <h3
-                    class="font-black text-slate-800 uppercase tracking-widest text-xs"
-                >
-                    Variables Workstation
-                </h3>
+                <div class="flex items-center gap-4">
+                    <h3
+                        class="font-black text-slate-800 uppercase tracking-widest text-xs"
+                    >
+                        Variables Workstation
+                    </h3>
+                    <button
+                        onclick={syncVariableConfigs}
+                        class="flex items-center gap-1.5 px-3 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-lg transition-all border border-indigo-100 cursor-pointer text-[9px] font-black uppercase tracking-widest"
+                        title="Pull latest types and dropdown options from the original blueprint"
+                    >
+                        <Icon name="RefreshCw" size={10} /> Sync with Blueprint
+                    </button>
+                </div>
                 <button
                     onclick={() => (modalConfig.isOpen = false)}
-                    class="border-none bg-transparent cursor-pointer"
+                    class="border-none bg-transparent cursor-pointer text-slate-400 hover:text-slate-600"
                     ><Icon name="X" /></button
                 >
             </div>
@@ -696,6 +725,7 @@
                     {@const config = $variableConfigs[v] || { type: "text" }}
                     <div class="space-y-1">
                         <label
+                            for="var-{v}"
                             class="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-1"
                             >{v}
                             <span class="text-indigo-300">({config.type})</span
@@ -703,12 +733,14 @@
                         >
                         {#if config.type === "date"}
                             <input
+                                id="var-{v}"
                                 type="date"
                                 bind:value={$variables[v]}
                                 class="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500/20"
                             />
                         {:else if config.type === "select"}
                             <select
+                                id="var-{v}"
                                 bind:value={$variables[v]}
                                 class="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 bg-white"
                             >

@@ -50,10 +50,12 @@
         <form onsubmit={handleSubmit} class="space-y-6">
             <div>
                 <label
+                    for="email"
                     class="block text-xs font-black uppercase text-slate-400 mb-2 tracking-widest"
                     >Email</label
                 >
                 <input
+                    id="email"
                     type="email"
                     required
                     bind:value={email}
@@ -63,10 +65,12 @@
             </div>
             <div>
                 <label
+                    for="password"
                     class="block text-xs font-black uppercase text-slate-400 mb-2 tracking-widest"
                     >Password</label
                 >
                 <input
+                    id="password"
                     type="password"
                     required
                     bind:value={password}
