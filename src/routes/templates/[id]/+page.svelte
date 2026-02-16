@@ -31,6 +31,17 @@
                 try {
                     const record = await pb.collection("templates").getOne(id);
                     structure = record;
+                    // Restore variableConfigs from state
+                    if (record.state) {
+                        try {
+                            const state = JSON.parse(record.state);
+                            if (state.variableConfigs) {
+                                variableConfigs.set(state.variableConfigs);
+                            }
+                        } catch (e) {
+                            console.error("Failed to parse template state", e);
+                        }
+                    }
                 } catch (err) {
                     console.error("Failed to fetch structure", err);
                 } finally {

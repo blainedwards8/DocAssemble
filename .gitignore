@@ -6,8 +6,10 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+build_error_*.txt
 
 node_modules
+.svelte-kit
 dist
 dist-ssr
 *.local

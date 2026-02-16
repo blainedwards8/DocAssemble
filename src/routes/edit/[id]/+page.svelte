@@ -640,16 +640,37 @@
                 class="grid grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto p-1"
             >
                 {#each detectedVariables() as v}
+                    {@const config = $variableConfigs[v] || { type: "text" }}
                     <div class="space-y-1">
                         <label
-                            class="text-[9px] font-black text-slate-400 uppercase tracking-widest"
-                            >{v}</label
+                            class="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-1"
+                            >{v}
+                            <span class="text-indigo-300">({config.type})</span
+                            ></label
                         >
-                        <input
-                            type="text"
-                            bind:value={$variables[v]}
-                            class="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500/20"
-                        />
+                        {#if config.type === "date"}
+                            <input
+                                type="date"
+                                bind:value={$variables[v]}
+                                class="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500/20"
+                            />
+                        {:else if config.type === "select"}
+                            <select
+                                bind:value={$variables[v]}
+                                class="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 appearance-none bg-white"
+                            >
+                                <option value="">Select option...</option>
+                                {#each config.options || [] as option}
+                                    <option value={option}>{option}</option>
+                                {/each}
+                            </select>
+                        {:else}
+                            <input
+                                type="text"
+                                bind:value={$variables[v]}
+                                class="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500/20"
+                            />
+                        {/if}
                     </div>
                 {/each}
             </div>
