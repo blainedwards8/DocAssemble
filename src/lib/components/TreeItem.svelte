@@ -1,15 +1,23 @@
 <script lang="ts">
     import Icon from "./Icon.svelte";
 
+    // Using Svelte 5 runes for props
     let { component, insertAtCursor, onSelectSlot } = $props();
 
+    // Local state for toggling section visibility
     let isExpanded = $state(true);
 
+    /**
+     * Toggles the visibility of nested components in the sidebar
+     */
     function toggleExpand(e: MouseEvent) {
         e.stopPropagation();
         isExpanded = !isExpanded;
     }
 
+    /**
+     * Inserts section tags into the editor, wrapping any selection
+     */
     function insertSectionTag(e: MouseEvent) {
         e.stopPropagation();
         const tagOpen = `<section name="${component.name}">\n`;
@@ -20,6 +28,7 @@
 
 <div class="mb-1">
     {#if component.type === "section"}
+        <!-- SECTION ITEM -->
         <div
             class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden mb-2"
         >
@@ -30,6 +39,7 @@
                 tabindex="0"
                 onkeydown={(e) => e.key === "Enter" && toggleExpand(e as any)}
             >
+                <!-- VS Code style Chevron -->
                 <div
                     class="transition-transform duration-200"
                     style="transform: rotate({isExpanded ? '0deg' : '-90deg'})"
@@ -48,6 +58,7 @@
                     {component.name}
                 </span>
 
+                <!-- Tooltip/Action: Add section tags to editor -->
                 <button
                     onclick={insertSectionTag}
                     title="Insert section tags"
@@ -57,6 +68,7 @@
                 </button>
             </div>
 
+            <!-- Recursive Children (Iterates over slots, variables, and nested sections in order) -->
             {#if isExpanded && component.children && component.children.length > 0}
                 <div
                     class="p-2 pt-0 border-t border-slate-50 space-y-1 bg-slate-50/20"
@@ -72,6 +84,7 @@
             {/if}
         </div>
     {:else if component.type === "slot"}
+        <!-- SLOT ITEM -->
         <button
             onclick={() => onSelectSlot(component.name)}
             class="w-full flex items-center justify-between p-2 bg-indigo-50/30 rounded-lg border border-indigo-100/50 hover:border-indigo-300 transition-all text-left cursor-pointer group mb-1"
@@ -89,7 +102,7 @@
             </div>
             <div class="flex items-center gap-1">
                 <span
-                    class="text-[9px] font-bold text-indigo-300 uppercase opacity-0 group-hover:opacity-100 transition-opacity"
+                    class="text-[8px] font-black text-indigo-300 uppercase opacity-0 group-hover:opacity-100 transition-opacity"
                     >Snippets</span
                 >
                 <Icon
@@ -100,6 +113,7 @@
             </div>
         </button>
     {:else if component.type === "variable"}
+        <!-- VARIABLE ITEM -->
         <button
             onclick={() => insertAtCursor(`{${component.name}}`)}
             class="w-full flex items-center gap-2 p-2 bg-slate-50 rounded-lg border border-slate-100 hover:border-indigo-200 transition-all text-left cursor-pointer group mb-1"
