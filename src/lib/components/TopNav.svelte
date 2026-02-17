@@ -2,7 +2,7 @@
     import Icon from "$lib/components/Icon.svelte";
     import { pb, auth } from "$lib/pocketbase.svelte";
     import { goto } from "$app/navigation";
-    import {page} from "$app/state";
+    import { page } from "$app/state";
 
     let user = auth.user;
 
@@ -34,6 +34,25 @@
                 >DocAssemble</span
             >
         </a>
+
+        <nav
+            class="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200/50"
+        >
+            <a
+                href="/app/matters"
+                class="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all no-underline"
+            >
+                <Icon name="Briefcase" size={14} />
+                <span>Matters</span>
+            </a>
+            <a
+                href="/app/templates"
+                class="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all no-underline"
+            >
+                <Icon name="FileCode" size={14} />
+                <span>Templates</span>
+            </a>
+        </nav>
 
         <!-- Primary Navigation -->
         <!-- <nav
@@ -82,36 +101,38 @@
         {/if}
     </div> -->
 
-    <div class="flex items-center gap-4">
-        <!-- User Profile -->
-        <div class="flex items-center gap-3 pl-4 border-l border-slate-100">
-            <div class="text-right hidden sm:block">
-                <p
-                    class="text-[10px] font-black text-slate-800 uppercase tracking-widest leading-none mb-1"
-                >
-                    {auth.user?.email?.split("@")[0] || "User"}
-                </p>
-                <p class="text-[9px] font-medium text-slate-400 leading-none">
-                    {auth.user?.email || ""}
-                </p>
-            </div>
-            <div
-                class="w-9 h-9 flex items-center justify-center bg-slate-100 rounded-xl text-slate-400 border border-slate-200/50 relative group cursor-pointer hover:bg-slate-200 transition-colors"
-            >
-                <Icon name="User" size={18} />
-                <!-- Logout Mini Tooltip/Menu -->
-                <div
-                    class="absolute top-full right-0 mt-2 p-2 bg-white border border-slate-200 rounded-xl shadow-xl hidden group-hover:block hover:bg-red-50 transition-colors z-[100] w-32 animate-in fade-in slide-in-from-top-1"
-                >
-                    <button
-                        onclick={onLogout}
-                        class="flex items-center gap-2 w-full text-left text-[10px] font-black uppercase text-slate-600 hover:text-red-600 transition-colors bg-transparent border-none p-0 cursor-pointer"
+        <div class="flex items-center gap-4">
+            <!-- User Profile -->
+            <div class="flex items-center gap-3 pl-4 border-l border-slate-100">
+                <div class="text-right hidden sm:block">
+                    <p
+                        class="text-[10px] font-black text-slate-800 uppercase tracking-widest leading-none mb-1"
                     >
-                        <Icon name="LogOut" size={14} /> Sign Out
-                    </button>
+                        {auth.user?.email?.split("@")[0] || "User"}
+                    </p>
+                    <p
+                        class="text-[9px] font-medium text-slate-400 leading-none"
+                    >
+                        {auth.user?.email || ""}
+                    </p>
+                </div>
+                <div
+                    class="w-9 h-9 flex items-center justify-center bg-slate-100 rounded-xl text-slate-400 border border-slate-200/50 relative group cursor-pointer hover:bg-slate-200 transition-colors"
+                >
+                    <Icon name="User" size={18} />
+                    <!-- Logout Mini Tooltip/Menu -->
+                    <div
+                        class="absolute top-full right-0 mt-2 p-2 bg-white border border-slate-200 rounded-xl shadow-xl hidden group-hover:block hover:bg-red-50 transition-colors z-[100] w-32 animate-in fade-in slide-in-from-top-1"
+                    >
+                        <button
+                            onclick={onLogout}
+                            class="flex items-center gap-2 w-full text-left text-[10px] font-black uppercase text-slate-600 hover:text-red-600 transition-colors bg-transparent border-none p-0 cursor-pointer"
+                        >
+                            <Icon name="LogOut" size={14} /> Sign Out
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
     </div>
 </header>

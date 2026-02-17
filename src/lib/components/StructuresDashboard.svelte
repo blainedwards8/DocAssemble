@@ -1,15 +1,14 @@
 <script>
     import Icon from "$lib/components/Icon.svelte";
-    import { structures } from "$lib/stores/app";
 
-    /** @type {{ onEditStructure: (structure: any) => void, onCreateStructure: () => void }} */
-    let { onEditStructure, onCreateStructure } = $props();
+    /** @type {{ structures?: import('$lib/types').Templates[], onEditStructure: (structure: any) => void, onCreateStructure: () => void }} */
+    let { structures = [], onEditStructure, onCreateStructure } = $props();
 
     let searchTerm = $state("");
 
     let filteredStructures = $derived(
-        $structures.filter((s) =>
-            s.title.toLowerCase().includes(searchTerm.toLowerCase()),
+        structures.filter((s) =>
+            s.title?.toLowerCase().includes(searchTerm.toLowerCase()),
         ),
     );
 </script>

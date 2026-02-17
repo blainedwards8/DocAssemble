@@ -4,7 +4,7 @@
 
     $effect(() => {
         if (auth.user) {
-            goto("/app/matters");
+            goto("/app");
         }
     });
 </script>
